@@ -1,11 +1,10 @@
-import {Box, Text} from 'ink';
+import {Box, Text, useApp, useInput} from 'ink';
 import {
-  Select,
   Spinner,
   StatusMessage,
   TextInput,
 } from '@inkjs/ui';
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import type {ReactNode} from 'react';
 import {
   MongoOperation,
@@ -34,6 +33,7 @@ enum AppPhase {
 type AppProps = {
   readonly loadCollections?: LoadCollections;
   readonly loadDatabases?: LoadDatabases;
+  readonly onExit?: () => void;
 };
 
 const defaultLoadDatabases: LoadDatabases = url => listMongoDatabases(url);
@@ -43,7 +43,9 @@ const defaultLoadCollections: LoadCollections = (url, databaseName) =>
 export function App({
   loadCollections = defaultLoadCollections,
   loadDatabases = defaultLoadDatabases,
+  onExit,
 }: AppProps): React.JSX.Element {
+  const {exit} = useApp();
   const [phase, setPhase] = useState<AppPhase>(AppPhase.Prompt);
   const [promptKey, setPromptKey] = useState(0);
   const [url, setUrl] = useState('');
@@ -52,6 +54,7 @@ export function App({
   const [databases, setDatabases] = useState<string[]>([]);
   const [selectedDatabase, setSelectedDatabase] = useState<string | null>(null);
   const [collections, setCollections] = useState<string[]>([]);
+  const exitApp = onExit ?? exit;
 
   const resetPrompt = useCallback((message: string | null = null) => {
     setUrl('');
@@ -83,6 +86,39 @@ export function App({
       setPromptError('Invalid MongoDB URL.');
     }
   }, []);
+
+  const returnToDatabases = useCallback(() => {
+    setOperationError(null);
+    setCollections([]);
+    setPhase(AppPhase.DatabasesLoaded);
+  }, []);
+
+  const selectDatabase = useCallback((databaseName: string) => {
+    setSelectedDatabase(databaseName);
+    setOperationError(null);
+    setCollections([]);
+    setPhase(AppPhase.LoadingCollections);
+  }, []);
+
+  useInput((input, key) => {
+    if (key.ctrl && input === 'c') {
+      exitApp();
+      return;
+    }
+
+    if (input === 'q' && phase !== AppPhase.Prompt) {
+      exitApp();
+      return;
+    }
+
+    if (
+      input === 'h' &&
+      (phase === AppPhase.CollectionsLoaded ||
+        phase === AppPhase.CollectionsEmpty)
+    ) {
+      returnToDatabases();
+    }
+  });
 
   useEffect(() => {
     if (phase !== AppPhase.LoadingDatabases) {
@@ -154,11 +190,6 @@ export function App({
     };
   }, [loadCollections, phase, selectedDatabase, url]);
 
-  const databaseOptions = useMemo(
-    () => databases.map(database => ({label: database, value: database})),
-    [databases],
-  );
-
   if (phase === AppPhase.Prompt) {
     return (
       <Screen>
@@ -207,14 +238,7 @@ export function App({
       <Screen>
         <StatusMessage variant="success">Databases loaded.</StatusMessage>
         <Text>Select a database</Text>
-        <Select
-          options={databaseOptions}
-          visibleOptionCount={8}
-          onChange={databaseName => {
-            setSelectedDatabase(databaseName);
-            setPhase(AppPhase.LoadingCollections);
-          }}
-        />
+        <DatabaseList databases={databases} onSelect={selectDatabase} />
       </Screen>
     );
   }
@@ -250,8 +274,56 @@ export function App({
           <Text key={collection}>- {collection}</Text>
         ))
       )}
-      <Text dimColor>Press Ctrl+C to exit.</Text>
+      <Text dimColor>Press h to go back, q or Ctrl+C to exit.</Text>
     </Screen>
+  );
+}
+
+function DatabaseList({
+  databases,
+  onSelect,
+}: {
+  readonly databases: string[];
+  readonly onSelect: (database: string) => void;
+}): React.JSX.Element {
+  const [focusedIndex, setFocusedIndex] = useState(0);
+
+  useEffect(() => {
+    setFocusedIndex(index => Math.min(index, Math.max(databases.length - 1, 0)));
+  }, [databases.length]);
+
+  useInput((input, key) => {
+    if (key.downArrow) {
+      setFocusedIndex(index => Math.min(index + 1, databases.length - 1));
+      return;
+    }
+
+    if (key.upArrow) {
+      setFocusedIndex(index => Math.max(index - 1, 0));
+      return;
+    }
+
+    if (key.return || input === 'l') {
+      const focusedDatabase = databases[focusedIndex];
+
+      if (focusedDatabase !== undefined) {
+        onSelect(focusedDatabase);
+      }
+    }
+  }, {isActive: databases.length > 0});
+
+  return (
+    <Box flexDirection="column">
+      {databases.map((database, index) => {
+        const isFocused = index === focusedIndex;
+
+        return (
+          <Text key={database} color={isFocused ? 'cyan' : undefined}>
+            {isFocused ? '>' : ' '} {database}
+          </Text>
+        );
+      })}
+    </Box>
   );
 }
 

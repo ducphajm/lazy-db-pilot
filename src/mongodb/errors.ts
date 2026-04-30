@@ -1,5 +1,6 @@
 export enum MongoValidationErrorCode {
   EmptyUrl = 'empty-url',
+  InvalidUrl = 'invalid-url',
 }
 
 export class MongoValidationError extends Error {

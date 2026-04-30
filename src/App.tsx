@@ -1,11 +1,19 @@
-import {Box, Text, useApp, useInput} from 'ink';
-import {
-  Spinner,
-  StatusMessage,
-  TextInput,
-} from '@inkjs/ui';
+import {useApp, useInput} from 'ink';
 import {useCallback, useEffect, useState} from 'react';
-import type {ReactNode} from 'react';
+import {
+  ConnectionValidationError,
+  ConnectionValidationErrorCode,
+} from './connections/errors.js';
+import {
+  addConnection,
+  loadConnections,
+} from './connections/persistence.js';
+import {
+  ConnectionEnvironment,
+  DatabaseType,
+  type ConnectionInput,
+  type DatabaseConnection,
+} from './connections/types.js';
 import {
   MongoOperation,
   MongoServiceError,
@@ -16,81 +24,169 @@ import {
   listMongoDatabases,
 } from './mongodb/service.js';
 import {validateMongoUrl} from './mongodb/validation.js';
+import {AppView} from './app/AppView.js';
+import {AppPhase} from './app/phases.js';
+import {RecoveryAction} from './app/ui.js';
 import type {LoadCollections, LoadDatabases} from './types.js';
 
-enum AppPhase {
-  CollectionError = 'collection-error',
-  CollectionsEmpty = 'collections-empty',
-  CollectionsLoaded = 'collections-loaded',
-  DatabasesEmpty = 'databases-empty',
-  DatabasesLoaded = 'databases-loaded',
-  DatabaseError = 'database-error',
-  LoadingCollections = 'loading-collections',
-  LoadingDatabases = 'loading-databases',
-  Prompt = 'prompt',
-}
+type SaveConnection = (input: ConnectionInput) => Promise<DatabaseConnection[]>;
 
 type AppProps = {
   readonly loadCollections?: LoadCollections;
+  readonly loadConnectionsList?: () => Promise<DatabaseConnection[]>;
   readonly loadDatabases?: LoadDatabases;
   readonly onExit?: () => void;
+  readonly saveConnection?: SaveConnection;
+};
+
+type ConnectionDraft = {
+  readonly name: string;
+  readonly type: DatabaseType | null;
+  readonly environment: ConnectionEnvironment | null;
 };
 
 const defaultLoadDatabases: LoadDatabases = url => listMongoDatabases(url);
 const defaultLoadCollections: LoadCollections = (url, databaseName) =>
   listMongoCollections(url, databaseName);
+const defaultSaveConnection: SaveConnection = input => addConnection(input);
 
 export function App({
   loadCollections = defaultLoadCollections,
+  loadConnectionsList = loadConnections,
   loadDatabases = defaultLoadDatabases,
   onExit,
+  saveConnection = defaultSaveConnection,
 }: AppProps): React.JSX.Element {
   const {exit} = useApp();
-  const [phase, setPhase] = useState<AppPhase>(AppPhase.Prompt);
-  const [promptKey, setPromptKey] = useState(0);
-  const [url, setUrl] = useState('');
-  const [promptError, setPromptError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<AppPhase>(AppPhase.LoadingConnections);
+  const [inputKey, setInputKey] = useState(0);
+  const [connections, setConnections] = useState<DatabaseConnection[]>([]);
+  const [selectedConnection, setSelectedConnection] =
+    useState<DatabaseConnection | null>(null);
+  const [draft, setDraft] = useState<ConnectionDraft>({
+    name: '',
+    type: null,
+    environment: null,
+  });
+  const [pendingConnection, setPendingConnection] =
+    useState<ConnectionInput | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [databases, setDatabases] = useState<string[]>([]);
   const [selectedDatabase, setSelectedDatabase] = useState<string | null>(null);
   const [collections, setCollections] = useState<string[]>([]);
   const exitApp = onExit ?? exit;
 
-  const resetPrompt = useCallback((message: string | null = null) => {
-    setUrl('');
-    setPromptError(message);
+  const resetCreation = useCallback((message: string | null = null) => {
+    setDraft({name: '', type: null, environment: null});
+    setPendingConnection(null);
+    setInputError(message);
+    setInputKey(key => key + 1);
+    setPhase(AppPhase.CreatingName);
+  }, []);
+
+  const showConnectionList = useCallback(() => {
     setOperationError(null);
-    setDatabases([]);
+    setSelectedConnection(null);
     setSelectedDatabase(null);
     setCollections([]);
-    setPromptKey(key => key + 1);
-    setPhase(AppPhase.Prompt);
+    setDatabases([]);
+    setPhase(
+      connections.length > 0
+        ? AppPhase.ConnectionsLoaded
+        : AppPhase.CreatingName,
+    );
+  }, [connections.length]);
+
+  const submitConnectionName = useCallback((input: string) => {
+    const name = input.trim();
+
+    if (name.length === 0) {
+      setInputError('Connection name is required.');
+      setInputKey(key => key + 1);
+      return;
+    }
+
+    if (connections.some(connection => connection.name === name)) {
+      setInputError('Connection name must be unique.');
+      setInputKey(key => key + 1);
+      return;
+    }
+
+    setDraft({name, type: null, environment: null});
+    setInputError(null);
+    setPhase(AppPhase.CreatingType);
+  }, [connections]);
+
+  const submitDatabaseType = useCallback((type: DatabaseType) => {
+    setDraft(current => ({...current, type}));
+    setInputError(null);
+    setPhase(AppPhase.CreatingEnvironment);
   }, []);
 
-  const submitUrl = useCallback((input: string) => {
-    try {
-      const nextUrl = validateMongoUrl(input);
-      setUrl(nextUrl);
-      setPromptError(null);
-      setOperationError(null);
-      setDatabases([]);
-      setCollections([]);
-      setSelectedDatabase(null);
-      setPhase(AppPhase.LoadingDatabases);
-    } catch (error: unknown) {
-      if (error instanceof MongoValidationError) {
-        setPromptError(error.message);
-        return;
+  const submitEnvironment = useCallback((environment: ConnectionEnvironment) => {
+    setDraft(current => {
+      const nextDraft = {...current, environment};
+
+      if (nextDraft.type === null) {
+        return nextDraft;
       }
 
-      setPromptError('Invalid MongoDB URL.');
-    }
+      if (nextDraft.type === DatabaseType.MongoDB) {
+        setPhase(AppPhase.CreatingMongoUrl);
+      } else {
+        setPendingConnection({
+          name: nextDraft.name,
+          type: nextDraft.type,
+          environment,
+          details: {},
+        });
+        setPhase(AppPhase.SavingConnection);
+      }
+
+      return nextDraft;
+    });
   }, []);
 
-  const returnToDatabases = useCallback(() => {
+  const submitMongoUrl = useCallback((input: string) => {
+    if (draft.type !== DatabaseType.MongoDB || draft.environment === null) {
+      setInputError('Connection details are incomplete.');
+      return;
+    }
+
+    try {
+      setPendingConnection({
+        name: draft.name,
+        type: DatabaseType.MongoDB,
+        environment: draft.environment,
+        details: {url: validateMongoUrl(input)},
+      });
+      setInputError(null);
+      setPhase(AppPhase.SavingConnection);
+    } catch (error: unknown) {
+      if (error instanceof MongoValidationError) {
+        setInputError(error.message);
+      } else {
+        setInputError('Invalid MongoDB URL.');
+      }
+
+      setInputKey(key => key + 1);
+    }
+  }, [draft]);
+
+  const selectConnection = useCallback((connection: DatabaseConnection) => {
+    setSelectedConnection(connection);
     setOperationError(null);
+    setDatabases([]);
     setCollections([]);
-    setPhase(AppPhase.DatabasesLoaded);
+    setSelectedDatabase(null);
+
+    if (connection.type !== DatabaseType.MongoDB) {
+      setPhase(AppPhase.UnsupportedConnection);
+      return;
+    }
+
+    setPhase(AppPhase.LoadingDatabases);
   }, []);
 
   const selectDatabase = useCallback((databaseName: string) => {
@@ -100,13 +196,28 @@ export function App({
     setPhase(AppPhase.LoadingCollections);
   }, []);
 
+  const returnToDatabases = useCallback(() => {
+    setOperationError(null);
+    setCollections([]);
+    setPhase(AppPhase.DatabasesLoaded);
+  }, []);
+
+  const handleRecovery = useCallback((action: RecoveryAction) => {
+    if (action === RecoveryAction.CreateConnection) {
+      resetCreation();
+      return;
+    }
+
+    showConnectionList();
+  }, [resetCreation, showConnectionList]);
+
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
       exitApp();
       return;
     }
 
-    if (input === 'q' && phase !== AppPhase.Prompt) {
+    if (input === 'q' && phase !== AppPhase.CreatingName) {
       exitApp();
       return;
     }
@@ -121,13 +232,84 @@ export function App({
   });
 
   useEffect(() => {
-    if (phase !== AppPhase.LoadingDatabases) {
+    if (phase !== AppPhase.LoadingConnections) {
       return;
     }
 
     let isActive = true;
 
-    void loadDatabases(url)
+    void loadConnectionsList()
+      .then(nextConnections => {
+        if (!isActive) {
+          return;
+        }
+
+        setConnections(nextConnections);
+        setPhase(
+          nextConnections.length > 0
+            ? AppPhase.ConnectionsLoaded
+            : AppPhase.CreatingName,
+        );
+      })
+      .catch(() => {
+        if (!isActive) {
+          return;
+        }
+
+        setOperationError('Unable to load saved connections.');
+        setPhase(AppPhase.ConnectionsError);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [loadConnectionsList, phase]);
+
+  useEffect(() => {
+    if (phase !== AppPhase.SavingConnection || pendingConnection === null) {
+      return;
+    }
+
+    let isActive = true;
+
+    void saveConnection(pendingConnection)
+      .then(nextConnections => {
+        if (!isActive) {
+          return;
+        }
+
+        setConnections(nextConnections);
+        setPendingConnection(null);
+        setDraft({name: '', type: null, environment: null});
+        setPhase(AppPhase.ConnectionsLoaded);
+      })
+      .catch((error: unknown) => {
+        if (!isActive) {
+          return;
+        }
+
+        setPendingConnection(null);
+        setInputError(getConnectionErrorMessage(error));
+        setInputKey(key => key + 1);
+        setPhase(AppPhase.CreatingName);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [pendingConnection, phase, saveConnection]);
+
+  useEffect(() => {
+    if (
+      phase !== AppPhase.LoadingDatabases ||
+      selectedConnection?.type !== DatabaseType.MongoDB
+    ) {
+      return;
+    }
+
+    let isActive = true;
+
+    void loadDatabases(selectedConnection.details.url)
       .then(nextDatabases => {
         if (!isActive) {
           return;
@@ -152,16 +334,20 @@ export function App({
     return () => {
       isActive = false;
     };
-  }, [loadDatabases, phase, url]);
+  }, [loadDatabases, phase, selectedConnection]);
 
   useEffect(() => {
-    if (phase !== AppPhase.LoadingCollections || selectedDatabase === null) {
+    if (
+      phase !== AppPhase.LoadingCollections ||
+      selectedConnection?.type !== DatabaseType.MongoDB ||
+      selectedDatabase === null
+    ) {
       return;
     }
 
     let isActive = true;
 
-    void loadCollections(url, selectedDatabase)
+    void loadCollections(selectedConnection.details.url, selectedDatabase)
       .then(nextCollections => {
         if (!isActive) {
           return;
@@ -188,172 +374,41 @@ export function App({
     return () => {
       isActive = false;
     };
-  }, [loadCollections, phase, selectedDatabase, url]);
-
-  if (phase === AppPhase.Prompt) {
-    return (
-      <Screen>
-        <Text>MongoDB URL</Text>
-        {promptError ? (
-          <StatusMessage variant="error">{promptError}</StatusMessage>
-        ) : null}
-        <TextInput
-          key={promptKey}
-          placeholder="mongodb://host:port"
-          onSubmit={submitUrl}
-        />
-      </Screen>
-    );
-  }
-
-  if (phase === AppPhase.LoadingDatabases) {
-    return (
-      <Screen>
-        <Spinner label="Loading databases" />
-      </Screen>
-    );
-  }
-
-  if (phase === AppPhase.DatabaseError) {
-    return (
-      <RetryScreen
-        message={operationError ?? 'Unable to load databases.'}
-        onRetry={() => resetPrompt()}
-      />
-    );
-  }
-
-  if (phase === AppPhase.DatabasesEmpty) {
-    return (
-      <RetryScreen
-        message="No databases are available for this connection."
-        onRetry={() => resetPrompt()}
-        variant="warning"
-      />
-    );
-  }
-
-  if (phase === AppPhase.DatabasesLoaded) {
-    return (
-      <Screen>
-        <StatusMessage variant="success">Databases loaded.</StatusMessage>
-        <Text>Select a database</Text>
-        <DatabaseList databases={databases} onSelect={selectDatabase} />
-      </Screen>
-    );
-  }
-
-  if (phase === AppPhase.LoadingCollections) {
-    return (
-      <Screen>
-        <Spinner label="Loading collections" />
-      </Screen>
-    );
-  }
-
-  if (phase === AppPhase.CollectionError) {
-    return (
-      <RetryScreen
-        message={operationError ?? 'Unable to load collections.'}
-        onRetry={() => resetPrompt()}
-      />
-    );
-  }
+  }, [loadCollections, phase, selectedConnection, selectedDatabase]);
 
   return (
-    <Screen>
-      <StatusMessage variant="success">
-        {selectedDatabase === null
-          ? 'Collections loaded.'
-          : `Collections in ${selectedDatabase}`}
-      </StatusMessage>
-      {phase === AppPhase.CollectionsEmpty ? (
-        <Text>No collections found.</Text>
-      ) : (
-        collections.map(collection => (
-          <Text key={collection}>- {collection}</Text>
-        ))
-      )}
-      <Text dimColor>Press h to go back, q or Ctrl+C to exit.</Text>
-    </Screen>
+    <AppView
+      collections={collections}
+      connections={connections}
+      databases={databases}
+      inputError={inputError}
+      inputKey={inputKey}
+      onCreateConnection={() => resetCreation()}
+      onRecovery={handleRecovery}
+      onSelectConnection={selectConnection}
+      onSelectDatabase={selectDatabase}
+      onSubmitConnectionName={submitConnectionName}
+      onSubmitDatabaseType={submitDatabaseType}
+      onSubmitEnvironment={submitEnvironment}
+      onSubmitMongoUrl={submitMongoUrl}
+      operationError={operationError}
+      phase={phase}
+      selectedConnection={selectedConnection}
+      selectedDatabase={selectedDatabase}
+    />
   );
 }
 
-function DatabaseList({
-  databases,
-  onSelect,
-}: {
-  readonly databases: string[];
-  readonly onSelect: (database: string) => void;
-}): React.JSX.Element {
-  const [focusedIndex, setFocusedIndex] = useState(0);
-
-  useEffect(() => {
-    setFocusedIndex(index => Math.min(index, Math.max(databases.length - 1, 0)));
-  }, [databases.length]);
-
-  useInput((input, key) => {
-    if (key.downArrow) {
-      setFocusedIndex(index => Math.min(index + 1, databases.length - 1));
-      return;
+function getConnectionErrorMessage(error: unknown): string {
+  if (error instanceof ConnectionValidationError) {
+    if (error.code === ConnectionValidationErrorCode.InvalidMongoUrl) {
+      return 'Invalid MongoDB URL.';
     }
 
-    if (key.upArrow) {
-      setFocusedIndex(index => Math.max(index - 1, 0));
-      return;
-    }
+    return error.message;
+  }
 
-    if (key.return || input === 'l') {
-      const focusedDatabase = databases[focusedIndex];
-
-      if (focusedDatabase !== undefined) {
-        onSelect(focusedDatabase);
-      }
-    }
-  }, {isActive: databases.length > 0});
-
-  return (
-    <Box flexDirection="column">
-      {databases.map((database, index) => {
-        const isFocused = index === focusedIndex;
-
-        return (
-          <Text key={database} color={isFocused ? 'cyan' : undefined}>
-            {isFocused ? '>' : ' '} {database}
-          </Text>
-        );
-      })}
-    </Box>
-  );
-}
-
-function Screen({
-  children,
-}: {
-  readonly children: ReactNode;
-}): React.JSX.Element {
-  return (
-    <Box flexDirection="column" gap={1}>
-      {children}
-    </Box>
-  );
-}
-
-function RetryScreen({
-  message,
-  onRetry,
-  variant = 'error',
-}: {
-  readonly message: string;
-  readonly onRetry: () => void;
-  readonly variant?: 'error' | 'warning';
-}): React.JSX.Element {
-  return (
-    <Screen>
-      <StatusMessage variant={variant}>{message}</StatusMessage>
-      <TextInput placeholder="Press Enter to retry" onSubmit={onRetry} />
-    </Screen>
-  );
+  return 'Unable to save connection.';
 }
 
 function getDisplayError(error: unknown, operation: MongoOperation): string {

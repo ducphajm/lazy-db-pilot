@@ -1,22 +1,4 @@
-## Purpose
-Define terminal UI behavior for connecting to MongoDB, browsing databases, and browsing collections.
-
-## Requirements
-
-### Requirement: MongoDB URL Input
-The system SHALL collect a MongoDB connection URL when the user creates a MongoDB connection, and SHALL NOT require direct URL entry before browsing if a saved MongoDB connection is selected.
-
-#### Scenario: User submits MongoDB URL while creating a connection
-- **WHEN** the user enters a MongoDB connection URL during MongoDB connection creation and submits the prompt
-- **THEN** the system validates the URL before saving the connection
-
-#### Scenario: User selects saved MongoDB connection
-- **WHEN** the user selects a saved MongoDB connection
-- **THEN** the system attempts to connect and list databases using the saved MongoDB URL
-
-#### Scenario: User submits empty input
-- **WHEN** the user submits an empty MongoDB URL during MongoDB connection creation
-- **THEN** the system rejects the input and remains on the URL prompt with an error message
+## ADDED Requirements
 
 ### Requirement: Connection List Navigation
 The system SHALL allow the user to move the focused item in selectable vertical lists with `j` and `k`.
@@ -42,6 +24,23 @@ The system SHALL allow the user to select a saved MongoDB connection before brow
 - **WHEN** the application starts and no saved connections exist
 - **THEN** the terminal UI displays a connection creation path
 
+## MODIFIED Requirements
+
+### Requirement: MongoDB URL Input
+The system SHALL collect a MongoDB connection URL when the user creates a MongoDB connection, and SHALL NOT require direct URL entry before browsing if a saved MongoDB connection is selected.
+
+#### Scenario: User submits MongoDB URL while creating a connection
+- **WHEN** the user enters a MongoDB connection URL during MongoDB connection creation and submits the prompt
+- **THEN** the system validates the URL before saving the connection
+
+#### Scenario: User selects saved MongoDB connection
+- **WHEN** the user selects a saved MongoDB connection
+- **THEN** the system attempts to connect and list databases using the saved MongoDB URL
+
+#### Scenario: User submits empty input
+- **WHEN** the user submits an empty MongoDB URL during MongoDB connection creation
+- **THEN** the system rejects the input and remains on the URL prompt with an error message
+
 ### Requirement: MongoDB Database Listing
 The system SHALL display database names available through the selected MongoDB connection before attempting to browse collections.
 
@@ -52,24 +51,6 @@ The system SHALL display database names available through the selected MongoDB c
 #### Scenario: Connection has no databases
 - **WHEN** the system successfully connects to MongoDB through the selected MongoDB connection and no databases are available
 - **THEN** the terminal UI displays an empty-state message and allows the user to return to saved connection selection or connection creation
-
-### Requirement: MongoDB Database Selection
-The system SHALL allow the user to select one listed MongoDB database before loading collections.
-
-#### Scenario: User selects database
-- **WHEN** the user selects a database from the database list
-- **THEN** the system attempts to load collections from the selected database
-
-### Requirement: Collection Listing
-The system SHALL display the collection names from the selected MongoDB database in the terminal UI.
-
-#### Scenario: Database has collections
-- **WHEN** the system successfully loads one or more collections from the selected MongoDB database
-- **THEN** the terminal UI displays each collection name
-
-#### Scenario: Database has no collections
-- **WHEN** the system successfully loads no collections from the selected MongoDB database
-- **THEN** the terminal UI displays an empty-state message
 
 ### Requirement: Connection Feedback
 The system SHALL show clear terminal UI feedback for loading and failure states while loading saved connections, connecting to MongoDB, listing databases, and loading collections.
@@ -93,37 +74,6 @@ The system MUST NOT display the submitted or saved MongoDB URL with embedded cre
 #### Scenario: URL includes credentials
 - **WHEN** a submitted or saved MongoDB URL contains credentials
 - **THEN** the terminal UI does not render the full URL or credentials in subsequent loading, connection-list, database-list, success, or error messages
-
-### Requirement: Fullscreen TUI Session
-The system SHALL run the CLI as a fullscreen terminal UI session when launched.
-
-#### Scenario: CLI launches
-- **WHEN** the user runs the CLI
-- **THEN** the terminal UI opens in fullscreen mode before displaying the MongoDB URL prompt
-
-### Requirement: Global Quit Controls
-The system SHALL allow the user to quit the terminal UI with `q` or `Ctrl+C`.
-
-#### Scenario: User quits with q
-- **WHEN** the terminal UI is open and the user presses `q`
-- **THEN** the system exits the terminal UI
-
-#### Scenario: User quits with Ctrl+C
-- **WHEN** the terminal UI is open and the user presses `Ctrl+C`
-- **THEN** the system exits the terminal UI
-
-### Requirement: Collection List Back Navigation
-The system SHALL allow the user to navigate from a collection list view back to the database list for the active MongoDB connection with Vim-style navigation.
-
-#### Scenario: User returns from loaded collections to databases
-- **WHEN** the user is viewing collections for a selected database and presses `h`
-- **THEN** the terminal UI displays the previously loaded database list
-- **AND** the system does not require the user to re-enter the MongoDB URL
-
-#### Scenario: User returns from empty collections to databases
-- **WHEN** the user is viewing an empty collection state for a selected database and presses `h`
-- **THEN** the terminal UI displays the previously loaded database list
-- **AND** the system does not require the user to re-enter the MongoDB URL
 
 ### Requirement: Vim-Style Forward Navigation
 The system SHALL allow the user to move forward from the focused selectable list item with `l`.

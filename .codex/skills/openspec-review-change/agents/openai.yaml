@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenSpec Review Change"
+  short_description: "Resolve open questions in a change"
+  default_prompt: "Use $openspec-review-change to review the current OpenSpec change and surface only decisions that need user input."

@@ -1,0 +1,4 @@
+schema: spec-driven
+
+context: |
+  Tech stack: TypeScript, React, Node.js, pnpm, @inkjs/ui

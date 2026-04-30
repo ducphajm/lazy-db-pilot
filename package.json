@@ -1,0 +1,37 @@
+{
+  "name": "lazy-db-pilot",
+  "version": "0.1.0",
+  "description": "Terminal database browser.",
+  "type": "module",
+  "bin": {
+    "lazy-db-pilot": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx src/cli.tsx",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "verify": "pnpm lint && pnpm test && pnpm typecheck"
+  },
+  "dependencies": {
+    "@inkjs/ui": "^2.0.0",
+    "ink": "^6.3.1",
+    "mongodb": "^7.0.0",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.2",
+    "eslint": "^9.39.1",
+    "ink-testing-library": "^4.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.3",
+    "vitest": "^4.0.8"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

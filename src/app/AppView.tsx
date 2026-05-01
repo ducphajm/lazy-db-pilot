@@ -1,10 +1,10 @@
 import {Text} from 'ink';
-import {StatusMessage, TextInput} from '@inkjs/ui';
-import type {ConnectionEnvironment, DatabaseType} from '../connections/types.js';
+import {StatusMessage} from '@inkjs/ui';
 import type {DatabaseConnection} from '../connections/types.js';
 import type {MongoCollectionDocument} from '../mongodb/service.js';
 import {DocumentTable} from '../tui/DocumentTable.js';
 import {SelectableList} from '../tui/SelectableList.js';
+import {ConnectionForm, type ConnectionFormDraft} from './ConnectionForm.js';
 import {AppPhase} from './phases.js';
 import {
   ConnectionList,
@@ -12,27 +12,23 @@ import {
   RecoveryAction,
   RecoveryScreen,
   Screen,
-  databaseTypeItems,
-  environmentItems,
   toListItems,
 } from './ui.js';
 
 export type AppViewProps = {
   readonly collectionDocuments: readonly MongoCollectionDocument[];
   readonly collections: readonly string[];
+  readonly connectionDraft: ConnectionFormDraft;
   readonly connections: readonly DatabaseConnection[];
   readonly databases: readonly string[];
   readonly inputError: string | null;
-  readonly inputKey: number;
   readonly onCreateConnection: () => void;
+  readonly onSubmitConnectionForm: () => void;
+  readonly onUpdateConnectionDraft: (draft: ConnectionFormDraft) => void;
   readonly onRecovery: (action: RecoveryAction) => void;
   readonly onSelectConnection: (connection: DatabaseConnection) => void;
   readonly onSelectCollection: (collectionName: string) => void;
   readonly onSelectDatabase: (databaseName: string) => void;
-  readonly onSubmitConnectionName: (input: string) => void;
-  readonly onSubmitDatabaseType: (type: DatabaseType) => void;
-  readonly onSubmitEnvironment: (environment: ConnectionEnvironment) => void;
-  readonly onSubmitMongoUrl: (input: string) => void;
   readonly operationError: string | null;
   readonly phase: AppPhase;
   readonly selectedConnection: DatabaseConnection | null;
@@ -43,19 +39,17 @@ export type AppViewProps = {
 export function AppView({
   collectionDocuments,
   collections,
+  connectionDraft,
   connections,
   databases,
   inputError,
-  inputKey,
   onCreateConnection,
+  onSubmitConnectionForm,
+  onUpdateConnectionDraft,
   onRecovery,
   onSelectConnection,
   onSelectCollection,
   onSelectDatabase,
-  onSubmitConnectionName,
-  onSubmitDatabaseType,
-  onSubmitEnvironment,
-  onSubmitMongoUrl,
   operationError,
   phase,
   selectedConnection,
@@ -88,53 +82,16 @@ export function AppView({
     );
   }
 
-  if (phase === AppPhase.CreatingName) {
+  if (phase === AppPhase.CreatingConnection) {
     return (
       <Screen>
-        <Text>Connection name</Text>
         {inputError ? (
           <StatusMessage variant="error">{inputError}</StatusMessage>
         ) : null}
-        <TextInput key={inputKey} onSubmit={onSubmitConnectionName} />
-      </Screen>
-    );
-  }
-
-  if (phase === AppPhase.CreatingType) {
-    return (
-      <Screen>
-        <Text>Database type</Text>
-        <SelectableList
-          items={databaseTypeItems}
-          onSelect={onSubmitDatabaseType}
-        />
-      </Screen>
-    );
-  }
-
-  if (phase === AppPhase.CreatingEnvironment) {
-    return (
-      <Screen>
-        <Text>Environment</Text>
-        <SelectableList
-          items={environmentItems}
-          onSelect={onSubmitEnvironment}
-        />
-      </Screen>
-    );
-  }
-
-  if (phase === AppPhase.CreatingMongoUrl) {
-    return (
-      <Screen>
-        <Text>MongoDB URL</Text>
-        {inputError ? (
-          <StatusMessage variant="error">{inputError}</StatusMessage>
-        ) : null}
-        <TextInput
-          key={inputKey}
-          placeholder="mongodb://host:port"
-          onSubmit={onSubmitMongoUrl}
+        <ConnectionForm
+          draft={connectionDraft}
+          onChange={onUpdateConnectionDraft}
+          onSubmit={onSubmitConnectionForm}
         />
       </Screen>
     );

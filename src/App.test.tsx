@@ -2,6 +2,12 @@ import React from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {cleanup, render} from 'ink-testing-library';
 import {App} from './App.js';
+import {
+  clearText,
+  fillConnectionForm,
+  selectConnectionEnvironment,
+  selectConnectionType,
+} from './appTestHelpers.js';
 import {ConnectionEnvironment, DatabaseType} from './connections/types.js';
 import type {ConnectionInput, DatabaseConnection} from './connections/types.js';
 import {MongoOperation, MongoServiceError} from './mongodb/errors.js';
@@ -32,14 +38,12 @@ describe('App', () => {
       />,
     );
 
-    await expectFrame(instance, 'Connection name');
-    await submitInput(instance, 'Local Mongo');
-    await expectFrame(instance, 'Database type');
-    instance.stdin.write('\r');
-    await expectFrame(instance, 'Environment');
-    instance.stdin.write('\r');
-    await expectFrame(instance, 'MongoDB URL');
-    await submitInput(instance, 'mongodb://user:secret@example');
+    await fillConnectionForm(instance, {
+      name: 'Local Mongo',
+      type: DatabaseType.MongoDB,
+      environment: ConnectionEnvironment.Local,
+      mongoUrl: 'mongodb://user:secret@example',
+    });
 
     await expectFrame(instance, 'Saved connections');
     expect(instance.lastFrame()).not.toContain('secret');
@@ -209,24 +213,34 @@ describe('App', () => {
     instance.stdin.write('j');
     await expectFrame(instance, '> Create connection');
     instance.stdin.write('\r');
-    await expectFrame(instance, 'Connection name');
+    await expectFrame(instance, 'Connection form');
 
     instance.stdin.write('\r');
     await expectFrame(instance, 'Connection name is required.');
 
-    await submitInput(instance, 'Existing');
+    instance.stdin.write('Existing');
+    await expectFrame(instance, 'Name: Existing');
+    instance.stdin.write('\r');
     await expectFrame(instance, 'Connection name must be unique.');
 
-    await submitInput(instance, 'New Mongo');
-    await expectFrame(instance, 'Database type');
-    instance.stdin.write('\r');
-    await expectFrame(instance, 'Environment');
-    instance.stdin.write('\r');
-    await expectFrame(instance, 'MongoDB URL');
-    await submitInput(instance, 'https://example.com');
+    const invalidMongoInstance = render(<App loadConnectionsList={async () => []} />);
+
+    await expectFrame(invalidMongoInstance, 'Connection form');
+    invalidMongoInstance.stdin.write('New Mongo');
+    await expectFrame(invalidMongoInstance, 'Name: New Mongo');
+    await selectConnectionType(invalidMongoInstance, DatabaseType.MongoDB);
+    await selectConnectionEnvironment(
+      invalidMongoInstance,
+      ConnectionEnvironment.Local,
+    );
+    invalidMongoInstance.stdin.write('\t');
+    await expectFrame(invalidMongoInstance, '> MongoDB URL');
+    invalidMongoInstance.stdin.write('https://example.com');
+    await expectFrame(invalidMongoInstance, 'https://example.com');
+    invalidMongoInstance.stdin.write('\r');
 
     await expectFrame(
-      instance,
+      invalidMongoInstance,
       'MongoDB URL must start with mongodb:// or mongodb+srv://.',
     );
   });
@@ -250,16 +264,11 @@ describe('App', () => {
       <App loadConnectionsList={async () => []} saveConnection={saveConnection} />,
     );
 
-    await expectFrame(instance, 'Connection name');
-    await submitInput(instance, 'Redis');
-    await expectFrame(instance, 'Database type');
-    instance.stdin.write('j');
-    await expectFrame(instance, '> Redis');
-    instance.stdin.write('\r');
-    await expectFrame(instance, 'Environment');
-    instance.stdin.write('j');
-    await expectFrame(instance, '> development');
-    instance.stdin.write('\r');
+    await fillConnectionForm(instance, {
+      name: 'Redis',
+      type: DatabaseType.Redis,
+      environment: ConnectionEnvironment.Development,
+    });
     await expectFrame(instance, 'Saved connections');
     expect(saveConnection).toHaveBeenNthCalledWith(1, {
       name: 'Redis',
@@ -271,20 +280,11 @@ describe('App', () => {
     instance.stdin.write('j');
     await expectFrame(instance, '> Create connection');
     instance.stdin.write('\r');
-    await expectFrame(instance, 'Connection name');
-    await submitInput(instance, 'SQLite');
-    await expectFrame(instance, 'Database type');
-    instance.stdin.write('j');
-    await expectFrame(instance, '> Redis');
-    instance.stdin.write('j');
-    await expectFrame(instance, '> SQLite');
-    instance.stdin.write('\r');
-    await expectFrame(instance, 'Environment');
-    instance.stdin.write('j');
-    await expectFrame(instance, '> development');
-    instance.stdin.write('j');
-    await expectFrame(instance, '> production');
-    instance.stdin.write('\r');
+    await fillConnectionForm(instance, {
+      name: 'SQLite',
+      type: DatabaseType.SQLite,
+      environment: ConnectionEnvironment.Production,
+    });
 
     await expectFrame(instance, 'Saved connections');
     expect(saveConnection).toHaveBeenNthCalledWith(2, {
@@ -337,7 +337,7 @@ describe('App', () => {
     instance.stdin.write('j');
     await expectFrame(instance, '> Create connection');
     instance.stdin.write('\r');
-    await expectFrame(instance, 'Connection name');
+    await expectFrame(instance, 'Connection form');
 
     const failingInstance = render(
       <App
@@ -364,18 +364,31 @@ describe('App', () => {
     await expectFrame(failingInstance, 'Saved connections');
   });
 
-  it('allows q in the name prompt and quits with q outside prompts', async () => {
+  it('allows q in the connection form and quits outside prompts', async () => {
     const onExit = vi.fn();
     const instance = render(
-      <App loadConnectionsList={async () => []} onExit={onExit} />,
+      <App
+        loadConnectionsList={async () => []}
+        onExit={onExit}
+        saveConnection={async () => [
+          redisConnection('Quit Test', ConnectionEnvironment.Local),
+        ]}
+      />,
     );
 
-    await expectFrame(instance, 'Connection name');
+    await expectFrame(instance, 'Connection form');
     instance.stdin.write('q');
-    await expectFrame(instance, 'q');
+    await expectFrame(instance, 'Name: q');
     expect(onExit).not.toHaveBeenCalled();
     instance.stdin.write('\r');
-    await expectFrame(instance, 'Database type');
+    await expectFrame(instance, 'Connection details are incomplete.');
+    await clearText(instance, 'q');
+    await fillConnectionForm(instance, {
+      name: 'Quit Test',
+      type: DatabaseType.Redis,
+      environment: ConnectionEnvironment.Local,
+    });
+    await expectFrame(instance, 'Saved connections');
     instance.stdin.write('q');
 
     await expectCallback(onExit);
@@ -395,15 +408,6 @@ async function expectCallback(callback: ReturnType<typeof vi.fn>): Promise<void>
   await vi.waitFor(() => {
     expect(callback).toHaveBeenCalledTimes(1);
   });
-}
-
-async function submitInput(
-  instance: ReturnType<typeof render>,
-  input: string,
-): Promise<void> {
-  instance.stdin.write(input);
-  await expectFrame(instance, input);
-  instance.stdin.write('\r');
 }
 
 function mongoConnection(name: string, url: string): DatabaseConnection {

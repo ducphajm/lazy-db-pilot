@@ -2,20 +2,23 @@ import {useApp, useInput} from 'ink';
 import {useCallback, useEffect, useState} from 'react';
 import {addConnection, loadConnections} from './connections/persistence.js';
 import {
-  ConnectionEnvironment,
   DatabaseType,
   type ConnectionInput,
   type DatabaseConnection,
 } from './connections/types.js';
-import {MongoOperation, MongoValidationError} from './mongodb/errors.js';
+import {validateConnection} from './connections/validation.js';
+import {MongoOperation} from './mongodb/errors.js';
 import {
   loadMongoCollectionDocuments,
   listMongoCollections,
   listMongoDatabases,
   type MongoCollectionDocument,
 } from './mongodb/service.js';
-import {validateMongoUrl} from './mongodb/validation.js';
 import {AppView} from './app/AppView.js';
+import {
+  createEmptyConnectionFormDraft,
+  type ConnectionFormDraft,
+} from './app/ConnectionForm.js';
 import {getConnectionErrorMessage, getDisplayError} from './app/errors.js';
 import {AppPhase} from './app/phases.js';
 import {RecoveryAction} from './app/ui.js';
@@ -34,12 +37,6 @@ type AppProps = {
   readonly loadDatabases?: LoadDatabases;
   readonly onExit?: () => void;
   readonly saveConnection?: SaveConnection;
-};
-
-type ConnectionDraft = {
-  readonly name: string;
-  readonly type: DatabaseType | null;
-  readonly environment: ConnectionEnvironment | null;
 };
 
 const defaultLoadDatabases: LoadDatabases = url => listMongoDatabases(url);
@@ -63,15 +60,12 @@ export function App({
 }: AppProps): React.JSX.Element {
   const {exit} = useApp();
   const [phase, setPhase] = useState<AppPhase>(AppPhase.LoadingConnections);
-  const [inputKey, setInputKey] = useState(0);
   const [connections, setConnections] = useState<DatabaseConnection[]>([]);
   const [selectedConnection, setSelectedConnection] =
     useState<DatabaseConnection | null>(null);
-  const [draft, setDraft] = useState<ConnectionDraft>({
-    name: '',
-    type: null,
-    environment: null,
-  });
+  const [draft, setDraft] = useState<ConnectionFormDraft>(
+    createEmptyConnectionFormDraft(),
+  );
   const [pendingConnection, setPendingConnection] =
     useState<ConnectionInput | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
@@ -87,11 +81,10 @@ export function App({
   const exitApp = onExit ?? exit;
 
   const resetCreation = useCallback((message: string | null = null) => {
-    setDraft({name: '', type: null, environment: null});
+    setDraft(createEmptyConnectionFormDraft());
     setPendingConnection(null);
     setInputError(message);
-    setInputKey(key => key + 1);
-    setPhase(AppPhase.CreatingName);
+    setPhase(AppPhase.CreatingConnection);
   }, []);
 
   const showConnectionList = useCallback(() => {
@@ -105,85 +98,50 @@ export function App({
     setPhase(
       connections.length > 0
         ? AppPhase.ConnectionsLoaded
-        : AppPhase.CreatingName,
+        : AppPhase.CreatingConnection,
     );
   }, [connections.length]);
 
-  const submitConnectionName = useCallback((input: string) => {
-    const name = input.trim();
+  const submitConnectionForm = useCallback(() => {
+    const name = draft.name.trim();
 
     if (name.length === 0) {
       setInputError('Connection name is required.');
-      setInputKey(key => key + 1);
       return;
     }
 
     if (connections.some(connection => connection.name === name)) {
       setInputError('Connection name must be unique.');
-      setInputKey(key => key + 1);
       return;
     }
 
-    setDraft({name, type: null, environment: null});
-    setInputError(null);
-    setPhase(AppPhase.CreatingType);
-  }, [connections]);
-
-  const submitDatabaseType = useCallback((type: DatabaseType) => {
-    setDraft(current => ({...current, type}));
-    setInputError(null);
-    setPhase(AppPhase.CreatingEnvironment);
-  }, []);
-
-  const submitEnvironment = useCallback((environment: ConnectionEnvironment) => {
-    setDraft(current => {
-      const nextDraft = {...current, environment};
-
-      if (nextDraft.type === null) {
-        return nextDraft;
-      }
-
-      if (nextDraft.type === DatabaseType.MongoDB) {
-        setPhase(AppPhase.CreatingMongoUrl);
-      } else {
-        setPendingConnection({
-          name: nextDraft.name,
-          type: nextDraft.type,
-          environment,
-          details: {},
-        });
-        setPhase(AppPhase.SavingConnection);
-      }
-
-      return nextDraft;
-    });
-  }, []);
-
-  const submitMongoUrl = useCallback((input: string) => {
-    if (draft.type !== DatabaseType.MongoDB || draft.environment === null) {
+    if (draft.type === null || draft.environment === null) {
       setInputError('Connection details are incomplete.');
       return;
     }
 
+    const input: ConnectionInput = {
+      name,
+      type: draft.type,
+      environment: draft.environment,
+      details:
+        draft.type === DatabaseType.MongoDB ? {url: draft.mongoUrl} : {},
+    };
+
     try {
-      setPendingConnection({
-        name: draft.name,
-        type: DatabaseType.MongoDB,
-        environment: draft.environment,
-        details: {url: validateMongoUrl(input)},
-      });
+      const connection = validateConnection(input, connections);
+
+      setPendingConnection(connection);
       setInputError(null);
       setPhase(AppPhase.SavingConnection);
     } catch (error: unknown) {
-      if (error instanceof MongoValidationError) {
+      if (error instanceof Error) {
         setInputError(error.message);
       } else {
-        setInputError('Invalid MongoDB URL.');
+        setInputError('Invalid connection details.');
       }
-
-      setInputKey(key => key + 1);
     }
-  }, [draft]);
+  }, [connections, draft]);
 
   const selectConnection = useCallback((connection: DatabaseConnection) => {
     setSelectedConnection(connection);
@@ -252,7 +210,7 @@ export function App({
       return;
     }
 
-    if (input === 'q' && phase !== AppPhase.CreatingName) {
+    if (input === 'q' && phase !== AppPhase.CreatingConnection) {
       exitApp();
       return;
     }
@@ -292,7 +250,7 @@ export function App({
         setPhase(
           nextConnections.length > 0
             ? AppPhase.ConnectionsLoaded
-            : AppPhase.CreatingName,
+            : AppPhase.CreatingConnection,
         );
       })
       .catch(() => {
@@ -324,7 +282,7 @@ export function App({
 
         setConnections(nextConnections);
         setPendingConnection(null);
-        setDraft({name: '', type: null, environment: null});
+        setDraft(createEmptyConnectionFormDraft());
         setPhase(AppPhase.ConnectionsLoaded);
       })
       .catch((error: unknown) => {
@@ -334,8 +292,7 @@ export function App({
 
         setPendingConnection(null);
         setInputError(getConnectionErrorMessage(error));
-        setInputKey(key => key + 1);
-        setPhase(AppPhase.CreatingName);
+        setPhase(AppPhase.CreatingConnection);
       });
 
     return () => {
@@ -477,19 +434,17 @@ export function App({
     <AppView
       collectionDocuments={collectionDocuments}
       collections={collections}
+      connectionDraft={draft}
       connections={connections}
       databases={databases}
       inputError={inputError}
-      inputKey={inputKey}
       onCreateConnection={() => resetCreation()}
       onRecovery={handleRecovery}
       onSelectConnection={selectConnection}
       onSelectCollection={selectCollection}
       onSelectDatabase={selectDatabase}
-      onSubmitConnectionName={submitConnectionName}
-      onSubmitDatabaseType={submitDatabaseType}
-      onSubmitEnvironment={submitEnvironment}
-      onSubmitMongoUrl={submitMongoUrl}
+      onSubmitConnectionForm={submitConnectionForm}
+      onUpdateConnectionDraft={setDraft}
       operationError={operationError}
       phase={phase}
       selectedConnection={selectedConnection}

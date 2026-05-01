@@ -1,4 +1,7 @@
 export enum AppPhase {
+  CollectionDataEmpty = 'collection-data-empty',
+  CollectionDataError = 'collection-data-error',
+  CollectionDataLoaded = 'collection-data-loaded',
   CollectionError = 'collection-error',
   CollectionsEmpty = 'collections-empty',
   CollectionsLoaded = 'collections-loaded',
@@ -12,6 +15,7 @@ export enum AppPhase {
   DatabasesEmpty = 'databases-empty',
   DatabasesLoaded = 'databases-loaded',
   LoadingCollections = 'loading-collections',
+  LoadingCollectionData = 'loading-collection-data',
   LoadingConnections = 'loading-connections',
   LoadingDatabases = 'loading-databases',
   SavingConnection = 'saving-connection',

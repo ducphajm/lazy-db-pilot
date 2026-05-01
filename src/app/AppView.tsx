@@ -2,6 +2,8 @@ import {Text} from 'ink';
 import {StatusMessage, TextInput} from '@inkjs/ui';
 import type {ConnectionEnvironment, DatabaseType} from '../connections/types.js';
 import type {DatabaseConnection} from '../connections/types.js';
+import type {MongoCollectionDocument} from '../mongodb/service.js';
+import {DocumentTable} from '../tui/DocumentTable.js';
 import {SelectableList} from '../tui/SelectableList.js';
 import {AppPhase} from './phases.js';
 import {
@@ -16,6 +18,7 @@ import {
 } from './ui.js';
 
 export type AppViewProps = {
+  readonly collectionDocuments: readonly MongoCollectionDocument[];
   readonly collections: readonly string[];
   readonly connections: readonly DatabaseConnection[];
   readonly databases: readonly string[];
@@ -24,6 +27,7 @@ export type AppViewProps = {
   readonly onCreateConnection: () => void;
   readonly onRecovery: (action: RecoveryAction) => void;
   readonly onSelectConnection: (connection: DatabaseConnection) => void;
+  readonly onSelectCollection: (collectionName: string) => void;
   readonly onSelectDatabase: (databaseName: string) => void;
   readonly onSubmitConnectionName: (input: string) => void;
   readonly onSubmitDatabaseType: (type: DatabaseType) => void;
@@ -32,10 +36,12 @@ export type AppViewProps = {
   readonly operationError: string | null;
   readonly phase: AppPhase;
   readonly selectedConnection: DatabaseConnection | null;
+  readonly selectedCollection: string | null;
   readonly selectedDatabase: string | null;
 };
 
 export function AppView({
+  collectionDocuments,
   collections,
   connections,
   databases,
@@ -44,6 +50,7 @@ export function AppView({
   onCreateConnection,
   onRecovery,
   onSelectConnection,
+  onSelectCollection,
   onSelectDatabase,
   onSubmitConnectionName,
   onSubmitDatabaseType,
@@ -52,6 +59,7 @@ export function AppView({
   operationError,
   phase,
   selectedConnection,
+  selectedCollection,
   selectedDatabase,
 }: AppViewProps): React.JSX.Element {
   if (phase === AppPhase.LoadingConnections) {
@@ -199,6 +207,48 @@ export function AppView({
     );
   }
 
+  if (phase === AppPhase.LoadingCollectionData) {
+    return (
+      <LoadingScreen
+        label={`Loading documents from ${selectedCollection ?? 'collection'}`}
+      />
+    );
+  }
+
+  if (phase === AppPhase.CollectionDataError) {
+    return (
+      <Screen>
+        <StatusMessage variant="error">
+          {operationError ?? 'Unable to load documents from the selected collection.'}
+        </StatusMessage>
+        <Text dimColor>Press h to go back, q or Ctrl+C to exit.</Text>
+      </Screen>
+    );
+  }
+
+  if (phase === AppPhase.CollectionDataEmpty) {
+    return (
+      <Screen>
+        <StatusMessage variant="warning">
+          No documents found in {selectedCollection ?? 'collection'}.
+        </StatusMessage>
+        <Text dimColor>Press h to go back, q or Ctrl+C to exit.</Text>
+      </Screen>
+    );
+  }
+
+  if (phase === AppPhase.CollectionDataLoaded) {
+    return (
+      <Screen>
+        <StatusMessage variant="success">
+          Documents in {selectedCollection ?? 'collection'}
+        </StatusMessage>
+        <DocumentTable documents={collectionDocuments} />
+        <Text dimColor>Press h to go back, q or Ctrl+C to exit.</Text>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
       <StatusMessage variant="success">
@@ -209,9 +259,10 @@ export function AppView({
       {phase === AppPhase.CollectionsEmpty ? (
         <Text>No collections found.</Text>
       ) : (
-        collections.map(collection => (
-          <Text key={collection}>- {collection}</Text>
-        ))
+        <SelectableList
+          items={toListItems(collections)}
+          onSelect={onSelectCollection}
+        />
       )}
       <Text dimColor>Press h to go back, q or Ctrl+C to exit.</Text>
     </Screen>

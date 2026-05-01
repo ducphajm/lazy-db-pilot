@@ -14,6 +14,7 @@ export class MongoValidationError extends Error {
 }
 
 export enum MongoOperation {
+  LoadCollectionDocuments = 'load-collection-documents',
   ListCollections = 'list-collections',
   ListDatabases = 'list-databases',
 }
@@ -32,6 +33,8 @@ export class MongoServiceError extends Error {
 
 export function getMongoServiceMessage(operation: MongoOperation): string {
   switch (operation) {
+    case MongoOperation.LoadCollectionDocuments:
+      return 'Unable to load documents from the selected collection.';
     case MongoOperation.ListCollections:
       return 'Unable to load collections from the selected database.';
     case MongoOperation.ListDatabases:

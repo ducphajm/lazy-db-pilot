@@ -1,5 +1,7 @@
-import {MongoClient} from 'mongodb';
+import {MongoClient, type Document} from 'mongodb';
 import {MongoOperation, MongoServiceError} from './errors.js';
+
+export const DEFAULT_COLLECTION_DOCUMENT_LIMIT = 25;
 
 export type MongoDatabaseInfo = {
   readonly name: string;
@@ -17,7 +19,21 @@ export type MongoAdminLike = {
 
 export type MongoDbLike = {
   admin: () => MongoAdminLike;
+  collection: (collectionName: string) => MongoCollectionLike;
   collections: () => Promise<readonly MongoCollectionInfo[]>;
+};
+
+export type MongoCollectionDocument = Record<string, unknown>;
+
+export type MongoCollectionLike = {
+  find: (
+    filter: Document,
+    options: {readonly limit: number},
+  ) => MongoFindCursorLike;
+};
+
+export type MongoFindCursorLike = {
+  toArray: () => Promise<readonly MongoCollectionDocument[]>;
 };
 
 export type MongoClientLike = {
@@ -63,6 +79,31 @@ export async function listMongoCollections(
     return collections.map(collection => collection.collectionName);
   } catch (error: unknown) {
     throw new MongoServiceError(MongoOperation.ListCollections, error);
+  } finally {
+    await client.close();
+  }
+}
+
+export async function loadMongoCollectionDocuments(
+  url: string,
+  databaseName: string,
+  collectionName: string,
+  limit: number = DEFAULT_COLLECTION_DOCUMENT_LIMIT,
+  createClient: MongoClientFactory = createMongoClient,
+): Promise<MongoCollectionDocument[]> {
+  const client = createClient(url);
+
+  try {
+    await client.connect();
+    const documents = await client
+      .db(databaseName)
+      .collection(collectionName)
+      .find({}, {limit})
+      .toArray();
+
+    return [...documents];
+  } catch (error: unknown) {
+    throw new MongoServiceError(MongoOperation.LoadCollectionDocuments, error);
   } finally {
     await client.close();
   }

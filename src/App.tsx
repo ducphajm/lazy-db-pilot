@@ -1,37 +1,34 @@
 import {useApp, useInput} from 'ink';
 import {useCallback, useEffect, useState} from 'react';
-import {
-  ConnectionValidationError,
-  ConnectionValidationErrorCode,
-} from './connections/errors.js';
-import {
-  addConnection,
-  loadConnections,
-} from './connections/persistence.js';
+import {addConnection, loadConnections} from './connections/persistence.js';
 import {
   ConnectionEnvironment,
   DatabaseType,
   type ConnectionInput,
   type DatabaseConnection,
 } from './connections/types.js';
+import {MongoOperation, MongoValidationError} from './mongodb/errors.js';
 import {
-  MongoOperation,
-  MongoServiceError,
-  MongoValidationError,
-} from './mongodb/errors.js';
-import {
+  loadMongoCollectionDocuments,
   listMongoCollections,
   listMongoDatabases,
+  type MongoCollectionDocument,
 } from './mongodb/service.js';
 import {validateMongoUrl} from './mongodb/validation.js';
 import {AppView} from './app/AppView.js';
+import {getConnectionErrorMessage, getDisplayError} from './app/errors.js';
 import {AppPhase} from './app/phases.js';
 import {RecoveryAction} from './app/ui.js';
-import type {LoadCollections, LoadDatabases} from './types.js';
+import type {
+  LoadCollectionDocuments,
+  LoadCollections,
+  LoadDatabases,
+} from './types.js';
 
 type SaveConnection = (input: ConnectionInput) => Promise<DatabaseConnection[]>;
 
 type AppProps = {
+  readonly loadCollectionDocuments?: LoadCollectionDocuments;
   readonly loadCollections?: LoadCollections;
   readonly loadConnectionsList?: () => Promise<DatabaseConnection[]>;
   readonly loadDatabases?: LoadDatabases;
@@ -48,9 +45,16 @@ type ConnectionDraft = {
 const defaultLoadDatabases: LoadDatabases = url => listMongoDatabases(url);
 const defaultLoadCollections: LoadCollections = (url, databaseName) =>
   listMongoCollections(url, databaseName);
+const defaultLoadCollectionDocuments: LoadCollectionDocuments = (
+  url,
+  databaseName,
+  collectionName,
+  limit,
+) => loadMongoCollectionDocuments(url, databaseName, collectionName, limit);
 const defaultSaveConnection: SaveConnection = input => addConnection(input);
 
 export function App({
+  loadCollectionDocuments = defaultLoadCollectionDocuments,
   loadCollections = defaultLoadCollections,
   loadConnectionsList = loadConnections,
   loadDatabases = defaultLoadDatabases,
@@ -75,6 +79,11 @@ export function App({
   const [databases, setDatabases] = useState<string[]>([]);
   const [selectedDatabase, setSelectedDatabase] = useState<string | null>(null);
   const [collections, setCollections] = useState<string[]>([]);
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(
+    null,
+  );
+  const [collectionDocuments, setCollectionDocuments] =
+    useState<MongoCollectionDocument[]>([]);
   const exitApp = onExit ?? exit;
 
   const resetCreation = useCallback((message: string | null = null) => {
@@ -89,7 +98,9 @@ export function App({
     setOperationError(null);
     setSelectedConnection(null);
     setSelectedDatabase(null);
+    setSelectedCollection(null);
     setCollections([]);
+    setCollectionDocuments([]);
     setDatabases([]);
     setPhase(
       connections.length > 0
@@ -179,6 +190,8 @@ export function App({
     setOperationError(null);
     setDatabases([]);
     setCollections([]);
+    setSelectedCollection(null);
+    setCollectionDocuments([]);
     setSelectedDatabase(null);
 
     if (connection.type !== DatabaseType.MongoDB) {
@@ -193,14 +206,36 @@ export function App({
     setSelectedDatabase(databaseName);
     setOperationError(null);
     setCollections([]);
+    setSelectedCollection(null);
+    setCollectionDocuments([]);
     setPhase(AppPhase.LoadingCollections);
+  }, []);
+
+  const selectCollection = useCallback((collectionName: string) => {
+    setSelectedCollection(collectionName);
+    setCollectionDocuments([]);
+    setOperationError(null);
+    setPhase(AppPhase.LoadingCollectionData);
   }, []);
 
   const returnToDatabases = useCallback(() => {
     setOperationError(null);
     setCollections([]);
+    setSelectedCollection(null);
+    setCollectionDocuments([]);
     setPhase(AppPhase.DatabasesLoaded);
   }, []);
+
+  const returnToCollections = useCallback(() => {
+    setOperationError(null);
+    setSelectedCollection(null);
+    setCollectionDocuments([]);
+    setPhase(
+      collections.length > 0
+        ? AppPhase.CollectionsLoaded
+        : AppPhase.CollectionsEmpty,
+    );
+  }, [collections.length]);
 
   const handleRecovery = useCallback((action: RecoveryAction) => {
     if (action === RecoveryAction.CreateConnection) {
@@ -228,6 +263,15 @@ export function App({
         phase === AppPhase.CollectionsEmpty)
     ) {
       returnToDatabases();
+    }
+
+    if (
+      input === 'h' &&
+      (phase === AppPhase.CollectionDataLoaded ||
+        phase === AppPhase.CollectionDataEmpty ||
+        phase === AppPhase.CollectionDataError)
+    ) {
+      returnToCollections();
     }
   });
 
@@ -354,6 +398,8 @@ export function App({
         }
 
         setCollections(nextCollections);
+        setSelectedCollection(null);
+        setCollectionDocuments([]);
         setPhase(
           nextCollections.length > 0
             ? AppPhase.CollectionsLoaded
@@ -376,8 +422,60 @@ export function App({
     };
   }, [loadCollections, phase, selectedConnection, selectedDatabase]);
 
+  useEffect(() => {
+    if (
+      phase !== AppPhase.LoadingCollectionData ||
+      selectedConnection?.type !== DatabaseType.MongoDB ||
+      selectedDatabase === null ||
+      selectedCollection === null
+    ) {
+      return;
+    }
+
+    let isActive = true;
+
+    void loadCollectionDocuments(
+      selectedConnection.details.url,
+      selectedDatabase,
+      selectedCollection,
+    )
+      .then(nextDocuments => {
+        if (!isActive) {
+          return;
+        }
+
+        setCollectionDocuments(nextDocuments);
+        setPhase(
+          nextDocuments.length > 0
+            ? AppPhase.CollectionDataLoaded
+            : AppPhase.CollectionDataEmpty,
+        );
+      })
+      .catch((error: unknown) => {
+        if (!isActive) {
+          return;
+        }
+
+        setOperationError(
+          getDisplayError(error, MongoOperation.LoadCollectionDocuments),
+        );
+        setPhase(AppPhase.CollectionDataError);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    loadCollectionDocuments,
+    phase,
+    selectedCollection,
+    selectedConnection,
+    selectedDatabase,
+  ]);
+
   return (
     <AppView
+      collectionDocuments={collectionDocuments}
       collections={collections}
       connections={connections}
       databases={databases}
@@ -386,6 +484,7 @@ export function App({
       onCreateConnection={() => resetCreation()}
       onRecovery={handleRecovery}
       onSelectConnection={selectConnection}
+      onSelectCollection={selectCollection}
       onSelectDatabase={selectDatabase}
       onSubmitConnectionName={submitConnectionName}
       onSubmitDatabaseType={submitDatabaseType}
@@ -394,32 +493,8 @@ export function App({
       operationError={operationError}
       phase={phase}
       selectedConnection={selectedConnection}
+      selectedCollection={selectedCollection}
       selectedDatabase={selectedDatabase}
     />
   );
-}
-
-function getConnectionErrorMessage(error: unknown): string {
-  if (error instanceof ConnectionValidationError) {
-    if (error.code === ConnectionValidationErrorCode.InvalidMongoUrl) {
-      return 'Invalid MongoDB URL.';
-    }
-
-    return error.message;
-  }
-
-  return 'Unable to save connection.';
-}
-
-function getDisplayError(error: unknown, operation: MongoOperation): string {
-  if (error instanceof MongoServiceError) {
-    return error.message;
-  }
-
-  switch (operation) {
-    case MongoOperation.ListCollections:
-      return 'Unable to load collections from the selected database.';
-    case MongoOperation.ListDatabases:
-      return 'Unable to connect to MongoDB or list databases.';
-  }
 }

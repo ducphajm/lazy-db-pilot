@@ -19,12 +19,16 @@ describe('App', () => {
     const saveConnection = vi.fn(async () => [savedConnection]);
     const loadDatabases = vi.fn(async () => ['admin']);
     const loadCollections = vi.fn(async () => ['users']);
+    const loadCollectionDocuments = vi.fn(async () => [
+      {_id: 'abc123', name: 'Ada'},
+    ]);
     const instance = render(
       <App
         loadConnectionsList={async () => []}
         saveConnection={saveConnection}
         loadDatabases={loadDatabases}
         loadCollections={loadCollections}
+        loadCollectionDocuments={loadCollectionDocuments}
       />,
     );
 
@@ -59,7 +63,18 @@ describe('App', () => {
       'mongodb://user:secret@example',
       'admin',
     );
-    expect(instance.lastFrame()).toContain('- users');
+    expect(instance.lastFrame()).toContain('> users');
+    expect(instance.lastFrame()).not.toContain('secret');
+
+    instance.stdin.write('\r');
+    await expectFrame(instance, 'Documents in users');
+    expect(loadCollectionDocuments).toHaveBeenCalledWith(
+      'mongodb://user:secret@example',
+      'admin',
+      'users',
+    );
+    expect(instance.lastFrame()).toContain('_id');
+    expect(instance.lastFrame()).toContain('Ada');
     expect(instance.lastFrame()).not.toContain('secret');
   });
 
@@ -94,6 +109,91 @@ describe('App', () => {
       'mongodb://example',
       'admin',
     );
+  });
+
+  it('loads collection data with Vim-style collection selection', async () => {
+    const loadCollectionDocuments = vi.fn(async () => [
+      {_id: '1', name: 'Grace', profile: {role: 'admin'}},
+    ]);
+    const instance = render(
+      <App
+        loadConnectionsList={async () => [
+          mongoConnection('Local Mongo', 'mongodb://example'),
+        ]}
+        loadDatabases={async () => ['admin']}
+        loadCollections={async () => ['users']}
+        loadCollectionDocuments={loadCollectionDocuments}
+      />,
+    );
+
+    await expectFrame(instance, 'Saved connections');
+    instance.stdin.write('\r');
+    await expectFrame(instance, 'Databases loaded.');
+    instance.stdin.write('\r');
+    await expectFrame(instance, 'Collections in admin');
+    instance.stdin.write('l');
+
+    await expectFrame(instance, 'Documents in users');
+    expect(loadCollectionDocuments).toHaveBeenCalledWith(
+      'mongodb://example',
+      'admin',
+      'users',
+    );
+    expect(instance.lastFrame()).toContain('profile');
+    expect(instance.lastFrame()).toContain('{"role":"admin"}');
+  });
+
+  it('handles collection data empty, failure, and back navigation states', async () => {
+    const emptyInstance = render(
+      <App
+        loadConnectionsList={async () => [
+          mongoConnection('Local Mongo', 'mongodb://example'),
+        ]}
+        loadDatabases={async () => ['admin']}
+        loadCollections={async () => ['users']}
+        loadCollectionDocuments={async () => []}
+      />,
+    );
+
+    await expectFrame(emptyInstance, 'Saved connections');
+    emptyInstance.stdin.write('\r');
+    await expectFrame(emptyInstance, 'Databases loaded.');
+    emptyInstance.stdin.write('\r');
+    await expectFrame(emptyInstance, 'Collections in admin');
+    emptyInstance.stdin.write('\r');
+    await expectFrame(emptyInstance, 'No documents found in users.');
+    emptyInstance.stdin.write('h');
+    await expectFrame(emptyInstance, 'Collections in admin');
+
+    const failingInstance = render(
+      <App
+        loadConnectionsList={async () => [
+          mongoConnection('Prod Mongo', 'mongodb://user:secret@example'),
+        ]}
+        loadDatabases={async () => ['admin']}
+        loadCollections={async () => ['users']}
+        loadCollectionDocuments={async () => {
+          throw new MongoServiceError(
+            MongoOperation.LoadCollectionDocuments,
+            new Error('mongodb://user:secret@example failed'),
+          );
+        }}
+      />,
+    );
+
+    await expectFrame(failingInstance, 'Saved connections');
+    failingInstance.stdin.write('\r');
+    await expectFrame(failingInstance, 'Databases loaded.');
+    failingInstance.stdin.write('\r');
+    await expectFrame(failingInstance, 'Collections in admin');
+    failingInstance.stdin.write('\r');
+    await expectFrame(
+      failingInstance,
+      'Unable to load documents from the selected collection.',
+    );
+    expect(failingInstance.lastFrame()).not.toContain('secret');
+    failingInstance.stdin.write('h');
+    await expectFrame(failingInstance, 'Collections in admin');
   });
 
   it('validates connection creation input', async () => {

@@ -1,4 +1,4 @@
-import {Box, Text} from 'ink';
+import {Box, Text, useStdout} from 'ink';
 import {Spinner, StatusMessage} from '@inkjs/ui';
 import type {ReactNode} from 'react';
 import type {MongoCollectionDocument} from '../mongodb/service.js';
@@ -32,10 +32,13 @@ export function MongoBrowserLayout({
   selectedSidebarIndex,
   sidebarItems,
 }: MongoBrowserLayoutProps): React.JSX.Element {
+  const {stdout} = useStdout();
+  const browserHeight = getBrowserContentHeight(stdout.rows);
+
   return (
     <Screen>
       <StatusMessage variant="success">Databases loaded.</StatusMessage>
-      <Box gap={1}>
+      <Box alignItems="flex-start" gap={1} height={browserHeight}>
         <BrowserPane
           isFocused={activeContainer === MongoBrowserContainer.LeftSidebar}
           title="Databases"
@@ -54,6 +57,8 @@ export function MongoBrowserLayout({
           <SidebarFeedback phase={phase} />
         </BrowserPane>
         <BrowserPane
+          flexGrow={1}
+          flexShrink={1}
           isFocused={activeContainer === MongoBrowserContainer.RightData}
           title="Documents"
         >
@@ -76,11 +81,15 @@ export function MongoBrowserLayout({
 
 function BrowserPane({
   children,
+  flexGrow,
+  flexShrink,
   isFocused,
   title,
   width,
 }: {
   readonly children: ReactNode;
+  readonly flexGrow?: number;
+  readonly flexShrink?: number;
   readonly isFocused: boolean;
   readonly title: string;
   readonly width?: number;
@@ -89,7 +98,12 @@ function BrowserPane({
     <Box
       borderColor={isFocused ? 'cyan' : 'gray'}
       borderStyle="single"
+      flexGrow={flexGrow}
+      flexShrink={flexShrink}
       flexDirection="column"
+      height="100%"
+      minWidth={width}
+      overflowY="hidden"
       paddingX={1}
       width={width}
     >
@@ -187,3 +201,15 @@ function RightDataContent({
 
   return <Text dimColor>Select a collection.</Text>;
 }
+
+export function getBrowserContentHeight(
+  terminalRows: number | undefined,
+): number | undefined {
+  if (terminalRows === undefined || terminalRows <= 0) {
+    return undefined;
+  }
+
+  return Math.max(5, terminalRows - browserVerticalChromeRows);
+}
+
+const browserVerticalChromeRows = 4;

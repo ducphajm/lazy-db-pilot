@@ -2,6 +2,7 @@ import React from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {cleanup, render} from 'ink-testing-library';
 import {App} from './App.js';
+import {getBrowserContentHeight} from './app/MongoBrowserLayout.js';
 import {ConnectionEnvironment, DatabaseType} from './connections/types.js';
 import type {DatabaseConnection} from './connections/types.js';
 
@@ -10,6 +11,12 @@ afterEach(() => {
 });
 
 describe('MongoDB split browser', () => {
+  it('caps browser content height to leave surrounding screen chrome visible', () => {
+    expect(getBrowserContentHeight(24)).toBe(20);
+    expect(getBrowserContentHeight(6)).toBe(5);
+    expect(getBrowserContentHeight(undefined)).toBeUndefined();
+  });
+
   it('moves focus between browser containers with Ctrl+h/j/k/l', async () => {
     const instance = render(
       <App

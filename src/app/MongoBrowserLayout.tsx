@@ -67,11 +67,13 @@ export function MongoBrowserLayout({
             activeDocumentTab={activeDocumentTab}
             documentTabs={documentTabs}
           />
-          <RightDataContent
-            activeDocumentTab={activeDocumentTab}
-            isFocused={activeContainer === MongoBrowserContainer.RightData}
-            operationError={operationError}
-          />
+          <Box flexDirection="column" flexShrink={1} overflowY="hidden">
+            <RightDataContent
+              activeDocumentTab={activeDocumentTab}
+              isFocused={activeContainer === MongoBrowserContainer.RightData}
+              operationError={operationError}
+            />
+          </Box>
         </BrowserPane>
       </Box>
       <Text dimColor>
@@ -216,7 +218,7 @@ function DocumentTabStrip({
   }
 
   return (
-    <Box gap={1}>
+    <Box flexShrink={0} gap={1}>
       {documentTabs.map(tab => {
         const isActive = tab.id === activeDocumentTab?.id;
         const label = `${tab.databaseName}.${tab.collectionName}`;

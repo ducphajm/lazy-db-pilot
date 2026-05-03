@@ -11,7 +11,7 @@ export function DocumentCardList({
   readonly selectedIndex: number;
 }): React.JSX.Element {
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" gap={1}>
       {documents.map((document, index) => (
         <DocumentCard
           document={document}
@@ -33,14 +33,14 @@ function DocumentCard({
   readonly documentIndex: number;
   readonly isSelected: boolean;
 }): React.JSX.Element {
-  const fieldNames = getDocumentFieldNames(document);
+  const fieldNames = getVisibleDocumentFieldNames(document);
+  const hiddenFieldCount = getHiddenFieldCount(document, fieldNames);
 
   return (
     <Box
       borderColor={isSelected ? 'cyan' : 'gray'}
       borderStyle="single"
       flexDirection="column"
-      marginBottom={1}
       paddingX={1}
     >
       <Text color={isSelected ? 'cyan' : undefined}>
@@ -53,6 +53,9 @@ function DocumentCard({
           value={document[fieldName]}
         />
       ))}
+      {hiddenFieldCount > 0 ? (
+        <Text dimColor>... {hiddenFieldCount} more fields hidden</Text>
+      ) : null}
     </Box>
   );
 }
@@ -64,14 +67,17 @@ function DocumentField({
   readonly fieldName: string;
   readonly value: unknown;
 }): React.JSX.Element {
-  const formattedValue = formatDocumentValue(value);
-  const lines = formattedValue.split('\n');
+  const preview = getDocumentValuePreview(formatDocumentValue(value));
+  const lines = preview.value.split('\n');
 
   if (lines.length === 1) {
     return (
       <Text>
         <Text dimColor>{fieldName}: </Text>
         {lines[0]}
+        {preview.hiddenLineCount > 0 ? (
+          <Text dimColor> ... {preview.hiddenLineCount} more lines hidden</Text>
+        ) : null}
       </Text>
     );
   }
@@ -83,6 +89,9 @@ function DocumentField({
         {lines.map((line, index) => (
           <Text key={`${fieldName}:${index}`}>{line}</Text>
         ))}
+        {preview.hiddenLineCount > 0 ? (
+          <Text dimColor>... {preview.hiddenLineCount} more lines hidden</Text>
+        ) : null}
       </Box>
     </Box>
   );
@@ -169,3 +178,42 @@ function isObjectIdLike(value: unknown): value is {toHexString: () => string} {
     typeof value.toHexString === 'function'
   );
 }
+
+function getVisibleDocumentFieldNames(
+  document: MongoCollectionDocument,
+): string[] {
+  return getDocumentFieldNames(document).slice(0, maxVisibleDocumentFields);
+}
+
+function getDocumentValuePreview(value: string): {
+  readonly hiddenLineCount: number;
+  readonly value: string;
+} {
+  const lines = value.split('\n');
+  const visibleLines = lines.slice(0, maxVisibleFieldLines);
+  const hiddenLineCount = Math.max(0, lines.length - visibleLines.length);
+
+  return {
+    hiddenLineCount,
+    value: visibleLines.map(truncateLine).join('\n'),
+  };
+}
+
+function truncateLine(line: string): string {
+  if (line.length <= maxVisibleLineLength) {
+    return line;
+  }
+
+  return `${line.slice(0, maxVisibleLineLength)}... ${line.length - maxVisibleLineLength} more chars hidden`;
+}
+
+function getHiddenFieldCount(
+  document: MongoCollectionDocument,
+  visibleFieldNames: readonly string[],
+): number {
+  return Math.max(0, Object.keys(document).length - visibleFieldNames.length);
+}
+
+const maxVisibleDocumentFields = 30;
+const maxVisibleFieldLines = 12;
+const maxVisibleLineLength = 180;

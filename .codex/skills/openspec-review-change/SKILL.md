@@ -43,6 +43,16 @@ Review a change as a decision filter: resolve what can be resolved from the arti
    - Do not ask broad preference questions when a conservative implementation path is available.
    - If there are no unresolved decisions, say so and list the decisions made from context.
 
+6. Persist user answers.
+   - When the user answers the numbered questions, update the active change artifacts before continuing.
+   - Capture design, architecture, API, data flow, persistence, rendering, CLI behavior, and testing decisions in `openspec/changes/<name>/design.md`.
+   - Capture scope or goal changes in `openspec/changes/<name>/proposal.md`.
+   - Capture requirement decisions in the relevant delta spec under `openspec/changes/<name>/specs/<capability>/spec.md`.
+   - Capture newly identified implementation work in `openspec/changes/<name>/tasks.md`.
+   - Prefer editing the most specific existing section. If no fitting section exists, add a concise "Decisions" or "Open Questions Resolved" section.
+   - Preserve the user's answer faithfully, but phrase it as an implementation decision instead of a chat transcript.
+   - After editing, report which artifacts changed and note any decisions that still remain unresolved.
+
 ## Output
 
 Use this structure:

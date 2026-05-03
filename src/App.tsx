@@ -8,7 +8,6 @@ import {
 } from './connections/types.js';
 import {validateConnection} from './connections/validation.js';
 import {MongoOperation} from './mongodb/errors.js';
-import type {MongoCollectionDocument} from './mongodb/service.js';
 import type {AppProps} from './app/AppProps.js';
 import {AppView} from './app/AppView.js';
 import {
@@ -22,6 +21,7 @@ import {
   defaultLoadDatabases,
   defaultSaveConnection,
 } from './app/defaultOperations.js';
+import {CollectionDocumentTabStatus} from './app/documentTabs.js';
 import {getConnectionErrorMessage, getDisplayError} from './app/errors.js';
 import {
   clampSidebarIndex,
@@ -34,6 +34,7 @@ import {useAppInput} from './app/useAppInput.js';
 import {
   useConnectionDeletion,
 } from './app/useConnectionDeletion.js';
+import {useDocumentTabs} from './app/useDocumentTabs.js';
 
 export function App({
   loadCollectionDocuments = defaultLoadCollectionDocuments,
@@ -59,12 +60,7 @@ export function App({
   const [databases, setDatabases] = useState<string[]>([]);
   const [selectedDatabase, setSelectedDatabase] = useState<string | null>(null);
   const [collections, setCollections] = useState<string[]>([]);
-  const [selectedCollection, setSelectedCollection] = useState<string | null>(
-    null,
-  );
-  const [collectionDocuments, setCollectionDocuments] =
-    useState<MongoCollectionDocument[]>([]);
-  const [selectedDocumentIndex, setSelectedDocumentIndex] = useState(0);
+  const [, setSelectedCollection] = useState<string | null>(null);
   const [activeBrowserContainer, setActiveBrowserContainer] =
     useState<MongoBrowserContainer>(MongoBrowserContainer.LeftSidebar);
   const [isDatabaseFolderOpen, setIsDatabaseFolderOpen] = useState(false);
@@ -83,6 +79,18 @@ export function App({
     setPhase,
     setSelectedConnection,
   });
+  const {
+    activeDocumentTab,
+    clearDocumentTabs,
+    closeActiveDocumentTab,
+    documentTabs,
+    moveSelectedDocument,
+    openDocumentTab,
+  } = useDocumentTabs({
+    loadCollectionDocuments,
+    selectedConnection,
+    setPhase,
+  });
 
   const resetCreation = useCallback((message: string | null = null) => {
     setDraft(createEmptyConnectionFormDraft());
@@ -97,8 +105,7 @@ export function App({
     setSelectedDatabase(null);
     setSelectedCollection(null);
     setCollections([]);
-    setCollectionDocuments([]);
-    setSelectedDocumentIndex(0);
+    clearDocumentTabs();
     setActiveBrowserContainer(MongoBrowserContainer.LeftSidebar);
     setIsDatabaseFolderOpen(false);
     setSelectedSidebarIndex(0);
@@ -108,7 +115,7 @@ export function App({
         ? AppPhase.ConnectionsLoaded
         : AppPhase.CreatingConnection,
     );
-  }, [clearPendingDeletion, connections.length]);
+  }, [clearDocumentTabs, clearPendingDeletion, connections.length]);
   const cancelConnectionForm = useCallback(() => {
     setDraft(createEmptyConnectionFormDraft());
     setPendingConnection(null);
@@ -162,8 +169,7 @@ export function App({
     setDatabases([]);
     setCollections([]);
     setSelectedCollection(null);
-    setCollectionDocuments([]);
-    setSelectedDocumentIndex(0);
+    clearDocumentTabs();
     setSelectedDatabase(null);
     setActiveBrowserContainer(MongoBrowserContainer.LeftSidebar);
     setIsDatabaseFolderOpen(false);
@@ -175,35 +181,33 @@ export function App({
     }
 
     setPhase(AppPhase.LoadingDatabases);
-  }, []);
+  }, [clearDocumentTabs]);
 
   const selectDatabase = useCallback((databaseName: string) => {
     setSelectedDatabase(databaseName);
     setOperationError(null);
     setCollections([]);
     setSelectedCollection(null);
-    setCollectionDocuments([]);
-    setSelectedDocumentIndex(0);
     setActiveBrowserContainer(MongoBrowserContainer.LeftSidebar);
     setIsDatabaseFolderOpen(true);
     setPhase(AppPhase.LoadingCollections);
   }, []);
 
   const selectCollection = useCallback((collectionName: string) => {
+    if (selectedConnection === null || selectedDatabase === null) {
+      return;
+    }
+
     setSelectedCollection(collectionName);
-    setCollectionDocuments([]);
-    setSelectedDocumentIndex(0);
     setOperationError(null);
     setActiveBrowserContainer(MongoBrowserContainer.RightData);
-    setPhase(AppPhase.LoadingCollectionData);
-  }, []);
+    openDocumentTab({collectionName, databaseName: selectedDatabase});
+  }, [openDocumentTab, selectedConnection, selectedDatabase]);
 
   const closeDatabaseFolder = useCallback(() => {
     setOperationError(null);
     setIsDatabaseFolderOpen(false);
     setSelectedCollection(null);
-    setCollectionDocuments([]);
-    setSelectedDocumentIndex(0);
     setPhase(AppPhase.DatabasesLoaded);
   }, []);
 
@@ -211,15 +215,6 @@ export function App({
     setOperationError(null);
     setActiveBrowserContainer(MongoBrowserContainer.LeftSidebar);
   }, []);
-
-  const moveSelectedDocument = useCallback(
-    (direction: -1 | 1) => {
-      setSelectedDocumentIndex(currentIndex =>
-        (currentIndex + direction + collectionDocuments.length) % collectionDocuments.length,
-      );
-    },
-    [collectionDocuments.length],
-  );
 
   const browserSidebarItems = useMemo(
     () =>
@@ -250,9 +245,13 @@ export function App({
   useAppInput({
     activeBrowserContainer,
     browserSidebarItems,
+    canMoveSelectedDocument:
+      activeDocumentTab?.status === CollectionDocumentTabStatus.Loaded,
+    closeActiveDocumentTab,
     closeDatabaseFolder,
     exitApp,
     focusLeftSidebar,
+    hasOpenDocumentTabs: documentTabs.length > 0,
     moveSelectedDocument,
     phase,
     selectedSidebarIndex,
@@ -385,8 +384,6 @@ export function App({
 
         setCollections(nextCollections);
         setSelectedCollection(null);
-        setCollectionDocuments([]);
-        setSelectedDocumentIndex(0);
         setPhase(
           nextCollections.length > 0
             ? AppPhase.CollectionsLoaded
@@ -409,65 +406,14 @@ export function App({
     };
   }, [loadCollections, phase, selectedConnection, selectedDatabase]);
 
-  useEffect(() => {
-    if (
-      phase !== AppPhase.LoadingCollectionData ||
-      selectedConnection?.type !== DatabaseType.MongoDB ||
-      selectedDatabase === null ||
-      selectedCollection === null
-    ) {
-      return;
-    }
-
-    let isActive = true;
-
-    void loadCollectionDocuments(
-      selectedConnection.details.url,
-      selectedDatabase,
-      selectedCollection,
-    )
-      .then(nextDocuments => {
-        if (!isActive) {
-          return;
-        }
-
-        setCollectionDocuments(nextDocuments);
-        setSelectedDocumentIndex(0);
-        setPhase(
-          nextDocuments.length > 0
-            ? AppPhase.CollectionDataLoaded
-            : AppPhase.CollectionDataEmpty,
-        );
-      })
-      .catch((error: unknown) => {
-        if (!isActive) {
-          return;
-        }
-
-        setOperationError(
-          getDisplayError(error, MongoOperation.LoadCollectionDocuments),
-        );
-        setPhase(AppPhase.CollectionDataError);
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [
-    loadCollectionDocuments,
-    phase,
-    selectedCollection,
-    selectedConnection,
-    selectedDatabase,
-  ]);
-
   return (
     <AppView
       activeBrowserContainer={activeBrowserContainer}
+      activeDocumentTab={activeDocumentTab}
       browserSidebarItems={browserSidebarItems}
-      collectionDocuments={collectionDocuments}
       connectionDraft={draft}
       connections={connections}
+      documentTabs={documentTabs}
       inputError={inputError}
       onCancelConnectionForm={cancelConnectionForm}
       onCreateConnection={() => resetCreation()}
@@ -480,8 +426,6 @@ export function App({
       operationError={operationError}
       phase={phase}
       selectedConnection={selectedConnection}
-      selectedCollection={selectedCollection}
-      selectedDocumentIndex={selectedDocumentIndex}
       selectedSidebarIndex={selectedSidebarIndex}
     />
   );

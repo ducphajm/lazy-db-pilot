@@ -1,9 +1,9 @@
 import {Text} from 'ink';
 import {StatusMessage} from '@inkjs/ui';
 import type {DatabaseConnection} from '../connections/types.js';
-import type {MongoCollectionDocument} from '../mongodb/service.js';
 import {ConnectionForm, type ConnectionFormDraft} from './ConnectionForm.js';
 import {MongoBrowserLayout} from './MongoBrowserLayout.js';
+import type {CollectionDocumentTab} from './documentTabs.js';
 import {AppPhase} from './phases.js';
 import {
   ConfirmDeleteAction,
@@ -20,7 +20,7 @@ import {
 } from './mongodbBrowser.js';
 
 export type AppViewProps = {
-  readonly collectionDocuments: readonly MongoCollectionDocument[];
+  readonly activeDocumentTab: CollectionDocumentTab | null;
   readonly activeBrowserContainer: MongoBrowserContainer;
   readonly browserSidebarItems: readonly MongoBrowserSidebarItem[];
   readonly connectionDraft: ConnectionFormDraft;
@@ -37,13 +37,12 @@ export type AppViewProps = {
   readonly operationError: string | null;
   readonly phase: AppPhase;
   readonly selectedConnection: DatabaseConnection | null;
-  readonly selectedCollection: string | null;
-  readonly selectedDocumentIndex: number;
+  readonly documentTabs: readonly CollectionDocumentTab[];
   readonly selectedSidebarIndex: number;
 };
 
 export function AppView({
-  collectionDocuments,
+  activeDocumentTab,
   activeBrowserContainer,
   browserSidebarItems,
   connectionDraft,
@@ -60,8 +59,7 @@ export function AppView({
   operationError,
   phase,
   selectedConnection,
-  selectedCollection,
-  selectedDocumentIndex,
+  documentTabs,
   selectedSidebarIndex,
 }: AppViewProps): React.JSX.Element {
   if (phase === AppPhase.LoadingConnections) {
@@ -186,11 +184,10 @@ export function AppView({
     return (
       <MongoBrowserLayout
         activeContainer={activeBrowserContainer}
-        collectionDocuments={collectionDocuments}
+        activeDocumentTab={activeDocumentTab}
+        documentTabs={documentTabs}
         operationError={operationError}
         phase={phase}
-        selectedCollection={selectedCollection}
-        selectedDocumentIndex={selectedDocumentIndex}
         selectedSidebarIndex={selectedSidebarIndex}
         sidebarItems={browserSidebarItems}
       />

@@ -1,8 +1,11 @@
 import {Box, Text, useStdout} from 'ink';
 import {Spinner, StatusMessage} from '@inkjs/ui';
 import type {ReactNode} from 'react';
-import type {MongoCollectionDocument} from '../mongodb/service.js';
 import {DocumentCardList} from '../tui/DocumentCardList.js';
+import {
+  CollectionDocumentTabStatus,
+  type CollectionDocumentTab,
+} from './documentTabs.js';
 import {AppPhase} from './phases.js';
 import {Screen} from './ui.js';
 import {
@@ -13,22 +16,20 @@ import {
 
 export type MongoBrowserLayoutProps = {
   readonly activeContainer: MongoBrowserContainer;
-  readonly collectionDocuments: readonly MongoCollectionDocument[];
+  readonly activeDocumentTab: CollectionDocumentTab | null;
+  readonly documentTabs: readonly CollectionDocumentTab[];
   readonly operationError: string | null;
   readonly phase: AppPhase;
-  readonly selectedCollection: string | null;
-  readonly selectedDocumentIndex: number;
   readonly selectedSidebarIndex: number;
   readonly sidebarItems: readonly MongoBrowserSidebarItem[];
 };
 
 export function MongoBrowserLayout({
   activeContainer,
-  collectionDocuments,
+  activeDocumentTab,
+  documentTabs,
   operationError,
   phase,
-  selectedCollection,
-  selectedDocumentIndex,
   selectedSidebarIndex,
   sidebarItems,
 }: MongoBrowserLayoutProps): React.JSX.Element {
@@ -62,18 +63,19 @@ export function MongoBrowserLayout({
           isFocused={activeContainer === MongoBrowserContainer.RightData}
           title="Documents"
         >
+          <DocumentTabStrip
+            activeDocumentTab={activeDocumentTab}
+            documentTabs={documentTabs}
+          />
           <RightDataContent
-            collectionDocuments={collectionDocuments}
+            activeDocumentTab={activeDocumentTab}
             isFocused={activeContainer === MongoBrowserContainer.RightData}
             operationError={operationError}
-            phase={phase}
-            selectedCollection={selectedCollection}
-            selectedDocumentIndex={selectedDocumentIndex}
           />
         </BrowserPane>
       </Box>
       <Text dimColor>
-        Ctrl+h/Ctrl+l move focus, j/k move items, Enter/l open, q exits.
+        Ctrl+h/Ctrl+l move focus, j/k move items, Enter/l open, x closes tab, q exits.
       </Text>
     </Screen>
   );
@@ -153,53 +155,80 @@ function SidebarFeedback({
 }
 
 function RightDataContent({
-  collectionDocuments,
+  activeDocumentTab,
   isFocused,
   operationError,
-  phase,
-  selectedCollection,
-  selectedDocumentIndex,
 }: {
-  readonly collectionDocuments: readonly MongoCollectionDocument[];
+  readonly activeDocumentTab: CollectionDocumentTab | null;
   readonly isFocused: boolean;
   readonly operationError: string | null;
-  readonly phase: AppPhase;
-  readonly selectedCollection: string | null;
-  readonly selectedDocumentIndex: number;
 }): React.JSX.Element {
-  if (phase === AppPhase.LoadingCollectionData) {
+  if (activeDocumentTab === null) {
+    return <Text dimColor>No open document tabs.</Text>;
+  }
+
+  if (activeDocumentTab.status === CollectionDocumentTabStatus.Loading) {
     return (
-      <Spinner label={`Loading documents from ${selectedCollection ?? 'collection'}`} />
+      <Spinner label={`Loading documents from ${activeDocumentTab.collectionName}`} />
     );
   }
 
-  if (phase === AppPhase.CollectionDataError) {
+  if (activeDocumentTab.status === CollectionDocumentTabStatus.Error) {
     return (
       <StatusMessage variant="error">
-        {operationError ?? 'Unable to load documents from the selected collection.'}
+        {activeDocumentTab.error ??
+          operationError ??
+          'Unable to load documents from the selected collection.'}
       </StatusMessage>
     );
   }
 
-  if (phase === AppPhase.CollectionDataEmpty) {
+  if (activeDocumentTab.status === CollectionDocumentTabStatus.Empty) {
     return (
       <StatusMessage variant="warning">
-        No documents found in {selectedCollection ?? 'collection'}.
+        No documents found in {activeDocumentTab.collectionName}.
       </StatusMessage>
     );
   }
 
-  if (phase === AppPhase.CollectionDataLoaded) {
+  if (activeDocumentTab.status === CollectionDocumentTabStatus.Loaded) {
     return (
       <DocumentCardList
-        documents={collectionDocuments}
+        documents={activeDocumentTab.documents}
         isFocused={isFocused}
-        selectedIndex={selectedDocumentIndex}
+        selectedIndex={activeDocumentTab.selectedDocumentIndex}
       />
     );
   }
 
-  return <Text dimColor>Select a collection.</Text>;
+  return <Text dimColor>No open document tabs.</Text>;
+}
+
+function DocumentTabStrip({
+  activeDocumentTab,
+  documentTabs,
+}: {
+  readonly activeDocumentTab: CollectionDocumentTab | null;
+  readonly documentTabs: readonly CollectionDocumentTab[];
+}): React.JSX.Element {
+  if (documentTabs.length === 0) {
+    return <Text dimColor>Tabs: none</Text>;
+  }
+
+  return (
+    <Box gap={1}>
+      {documentTabs.map(tab => {
+        const isActive = tab.id === activeDocumentTab?.id;
+        const label = `${tab.databaseName}.${tab.collectionName}`;
+
+        return (
+          <Text color={isActive ? 'cyan' : undefined} key={tab.id}>
+            {isActive ? '[' : ' '} {label} {isActive ? ']' : ' '}
+          </Text>
+        );
+      })}
+    </Box>
+  );
 }
 
 export function getBrowserContentHeight(

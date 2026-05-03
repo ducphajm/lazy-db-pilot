@@ -13,9 +13,12 @@ import {
 export type UseAppInputParams = {
   readonly activeBrowserContainer: MongoBrowserContainer;
   readonly browserSidebarItems: readonly MongoBrowserSidebarItem[];
+  readonly canMoveSelectedDocument: boolean;
+  readonly closeActiveDocumentTab: () => void;
   readonly closeDatabaseFolder: () => void;
   readonly exitApp: () => void;
   readonly focusLeftSidebar: () => void;
+  readonly hasOpenDocumentTabs: boolean;
   readonly moveSelectedDocument: (direction: -1 | 1) => void;
   readonly phase: AppPhase;
   readonly selectedSidebarIndex: number;
@@ -31,9 +34,12 @@ export type UseAppInputParams = {
 export function useAppInput({
   activeBrowserContainer,
   browserSidebarItems,
+  canMoveSelectedDocument,
+  closeActiveDocumentTab,
   closeDatabaseFolder,
   exitApp,
   focusLeftSidebar,
+  hasOpenDocumentTabs,
   moveSelectedDocument,
   phase,
   selectedSidebarIndex,
@@ -65,7 +71,11 @@ export function useAppInput({
       return;
     }
 
-    if (key.ctrl && input === 'l' && canFocusMongoBrowserRightData(phase)) {
+    if (
+      key.ctrl &&
+      input === 'l' &&
+      (hasOpenDocumentTabs || canFocusMongoBrowserRightData(phase))
+    ) {
       setActiveBrowserContainer(MongoBrowserContainer.RightData);
       return;
     }
@@ -91,12 +101,17 @@ export function useAppInput({
       return;
     }
 
-    if (phase === AppPhase.CollectionDataLoaded && input === 'j') {
+    if (input === 'x' && hasOpenDocumentTabs) {
+      closeActiveDocumentTab();
+      return;
+    }
+
+    if (canMoveSelectedDocument && input === 'j') {
       moveSelectedDocument(1);
       return;
     }
 
-    if (phase === AppPhase.CollectionDataLoaded && input === 'k') {
+    if (canMoveSelectedDocument && input === 'k') {
       moveSelectedDocument(-1);
     }
   }

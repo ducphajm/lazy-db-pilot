@@ -96,7 +96,6 @@ export function App({
     setInputError(message);
     setPhase(AppPhase.CreatingConnection);
   }, []);
-
   const showConnectionList = useCallback(() => {
     setOperationError(null);
     setSelectedConnection(null);
@@ -113,7 +112,12 @@ export function App({
         : AppPhase.CreatingConnection,
     );
   }, [clearPendingDeletion, connections.length]);
-
+  const cancelConnectionForm = useCallback(() => {
+    setDraft(createEmptyConnectionFormDraft());
+    setPendingConnection(null);
+    setInputError(null);
+    showConnectionList();
+  }, [showConnectionList]);
   const submitConnectionForm = useCallback(() => {
     const name = draft.name.trim();
 
@@ -261,11 +265,9 @@ export function App({
     ) {
       returnToCollections();
     }
-
     if (phase === AppPhase.CollectionDataLoaded && input === 'j') {
       moveSelectedDocument(1);
     }
-
     if (phase === AppPhase.CollectionDataLoaded && input === 'k') {
       moveSelectedDocument(-1);
     }
@@ -304,7 +306,6 @@ export function App({
       isActive = false;
     };
   }, [loadConnectionsList, phase]);
-
   useEffect(() => {
     if (phase !== AppPhase.SavingConnection || pendingConnection === null) {
       return;
@@ -478,6 +479,7 @@ export function App({
       connections={connections}
       databases={databases}
       inputError={inputError}
+      onCancelConnectionForm={cancelConnectionForm}
       onCreateConnection={() => resetCreation()}
       onDeleteConnection={requestConnectionDeletion}
       onDeleteConnectionConfirmation={handleDeleteConfirmation}

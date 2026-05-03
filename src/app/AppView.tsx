@@ -27,6 +27,7 @@ export type AppViewProps = {
   readonly onCreateConnection: () => void;
   readonly onDeleteConnection: (connection: DatabaseConnection) => void;
   readonly onDeleteConnectionConfirmation: (action: ConfirmDeleteAction) => void;
+  readonly onCancelConnectionForm: () => void;
   readonly onSubmitConnectionForm: () => void;
   readonly onUpdateConnectionDraft: (draft: ConnectionFormDraft) => void;
   readonly onRecovery: (action: RecoveryAction) => void;
@@ -51,6 +52,7 @@ export function AppView({
   onCreateConnection,
   onDeleteConnection,
   onDeleteConnectionConfirmation,
+  onCancelConnectionForm,
   onSubmitConnectionForm,
   onUpdateConnectionDraft,
   onRecovery,
@@ -99,6 +101,7 @@ export function AppView({
         ) : null}
         <ConnectionForm
           draft={connectionDraft}
+          onCancel={onCancelConnectionForm}
           onChange={onUpdateConnectionDraft}
           onSubmit={onSubmitConnectionForm}
         />

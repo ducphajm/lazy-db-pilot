@@ -25,10 +25,12 @@ export function createEmptyConnectionFormDraft(): ConnectionFormDraft {
 
 export function ConnectionForm({
   draft,
+  onCancel,
   onChange,
   onSubmit,
 }: {
   readonly draft: ConnectionFormDraft;
+  readonly onCancel: () => void;
   readonly onChange: (draft: ConnectionFormDraft) => void;
   readonly onSubmit: () => void;
 }): React.JSX.Element {
@@ -43,6 +45,11 @@ export function ConnectionForm({
   }, [fields, focusedField]);
 
   useInput((input, key) => {
+    if (key.escape) {
+      onCancel();
+      return;
+    }
+
     if (key.tab) {
       setFocusedField(currentField =>
         getFieldByOffset(fields, currentField, key.shift ? -1 : 1),
@@ -111,6 +118,7 @@ export function ConnectionForm({
           placeholder="mongodb://host:port"
         />
       ) : null}
+      <Text dimColor>Press Escape to cancel, Enter to save.</Text>
     </Box>
   );
 }

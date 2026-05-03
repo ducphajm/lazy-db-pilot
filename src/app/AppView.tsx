@@ -2,7 +2,7 @@ import {Text} from 'ink';
 import {StatusMessage} from '@inkjs/ui';
 import type {DatabaseConnection} from '../connections/types.js';
 import type {MongoCollectionDocument} from '../mongodb/service.js';
-import {DocumentTable} from '../tui/DocumentTable.js';
+import {DocumentCardList} from '../tui/DocumentCardList.js';
 import {SelectableList} from '../tui/SelectableList.js';
 import {ConnectionForm, type ConnectionFormDraft} from './ConnectionForm.js';
 import {AppPhase} from './phases.js';
@@ -38,6 +38,7 @@ export type AppViewProps = {
   readonly selectedConnection: DatabaseConnection | null;
   readonly selectedCollection: string | null;
   readonly selectedDatabase: string | null;
+  readonly selectedDocumentIndex: number;
 };
 
 export function AppView({
@@ -61,6 +62,7 @@ export function AppView({
   selectedConnection,
   selectedCollection,
   selectedDatabase,
+  selectedDocumentIndex,
 }: AppViewProps): React.JSX.Element {
   if (phase === AppPhase.LoadingConnections) {
     return <LoadingScreen label="Loading saved connections" />;
@@ -220,7 +222,10 @@ export function AppView({
         <StatusMessage variant="success">
           Documents in {selectedCollection ?? 'collection'}
         </StatusMessage>
-        <DocumentTable documents={collectionDocuments} />
+        <DocumentCardList
+          documents={collectionDocuments}
+          selectedIndex={selectedDocumentIndex}
+        />
         <Text dimColor>Press h to go back, q or Ctrl+C to exit.</Text>
       </Screen>
     );

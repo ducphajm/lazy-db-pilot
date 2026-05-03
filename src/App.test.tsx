@@ -78,6 +78,7 @@ describe('App', () => {
       'users',
     );
     expect(instance.lastFrame()).toContain('_id');
+    expect(instance.lastFrame()).toContain('> Document 1');
     expect(instance.lastFrame()).toContain('Ada');
     expect(instance.lastFrame()).not.toContain('secret');
   });
@@ -145,6 +146,40 @@ describe('App', () => {
     );
     expect(instance.lastFrame()).toContain('profile');
     expect(instance.lastFrame()).toContain('"role": "admin"');
+    expect(instance.lastFrame()).toContain('> Document 1');
+  });
+
+  it('moves selected document cards with j and k inside bounds', async () => {
+    const instance = render(
+      <App
+        loadConnectionsList={async () => [
+          mongoConnection('Local Mongo', 'mongodb://example'),
+        ]}
+        loadDatabases={async () => ['admin']}
+        loadCollections={async () => ['users']}
+        loadCollectionDocuments={async () => [
+          {_id: '1', name: 'Ada'},
+          {_id: '2', name: 'Grace'},
+        ]}
+      />,
+    );
+
+    await expectFrame(instance, 'Saved connections');
+    instance.stdin.write('\r');
+    await expectFrame(instance, 'Databases loaded.');
+    instance.stdin.write('\r');
+    await expectFrame(instance, 'Collections in admin');
+    instance.stdin.write('\r');
+    await expectFrame(instance, '> Document 1');
+
+    instance.stdin.write('j');
+    await expectFrame(instance, '> Document 2');
+    instance.stdin.write('j');
+    await expectFrame(instance, '> Document 2');
+    instance.stdin.write('k');
+    await expectFrame(instance, '> Document 1');
+    instance.stdin.write('k');
+    await expectFrame(instance, '> Document 1');
   });
 
   it('handles collection data empty, failure, and back navigation states', async () => {

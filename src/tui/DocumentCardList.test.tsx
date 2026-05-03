@@ -1,13 +1,17 @@
 import React from 'react';
 import {cleanup, render} from 'ink-testing-library';
 import {afterEach, describe, expect, it} from 'vitest';
-import {DocumentTable, formatDocumentValue} from './DocumentTable.js';
+import {
+  DocumentCardList,
+  formatDocumentValue,
+  getDocumentFieldNames,
+} from './DocumentCardList.js';
 
 afterEach(() => {
   cleanup();
 });
 
-describe('DocumentTable', () => {
+describe('DocumentCardList', () => {
   it('formats document values by type', () => {
     const objectId = {toHexString: () => '507f1f77bcf86cd799439011'};
 
@@ -24,9 +28,37 @@ describe('DocumentTable', () => {
     expect(formatDocumentValue(objectId)).toBe('507f1f77bcf86cd799439011');
   });
 
-  it('keeps multi-line table cells aligned', () => {
+  it('orders _id before other vertical fields', () => {
+    expect(getDocumentFieldNames({name: 'Ada', _id: '1', active: true})).toEqual([
+      '_id',
+      'name',
+      'active',
+    ]);
+  });
+
+  it('renders documents as selected cards with vertical scalar fields', () => {
     const instance = render(
-      <DocumentTable
+      <DocumentCardList
+        documents={[
+          {_id: '1', name: 'Ada', active: true},
+          {_id: '2', name: 'Grace', active: false},
+        ]}
+        selectedIndex={1}
+      />,
+    );
+
+    const frame = instance.lastFrame() ?? '';
+
+    expect(frame).toContain('Document 1');
+    expect(frame).toContain('> Document 2');
+    expect(frame).toContain('_id: 1');
+    expect(frame).toContain('name: Ada');
+    expect(frame).toContain('active: false');
+  });
+
+  it('renders nested JSON values as indented multi-line field values', () => {
+    const instance = render(
+      <DocumentCardList
         documents={[
           {
             _id: '1',
@@ -34,15 +66,17 @@ describe('DocumentTable', () => {
             tags: ['ops', 'db'],
           },
         ]}
+        selectedIndex={0}
       />,
     );
 
     const frame = instance.lastFrame() ?? '';
 
-    expect(frame).toContain('profile');
+    expect(frame).toContain('profile:');
     expect(frame).toContain('{');
     expect(frame).toContain('  "role": "admin",');
     expect(frame).toContain('  "active": true');
+    expect(frame).toContain('tags:');
     expect(frame).toContain('[');
     expect(frame).toContain('  "ops",');
     expect(frame).not.toContain('{"role":"admin"');

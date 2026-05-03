@@ -1,10 +1,6 @@
 import {useApp, useInput} from 'ink';
 import {useCallback, useEffect, useState} from 'react';
-import {
-  addConnection,
-  deleteConnection,
-  loadConnections,
-} from './connections/persistence.js';
+import {loadConnections} from './connections/persistence.js';
 import {
   DatabaseType,
   type ConnectionInput,
@@ -12,17 +8,20 @@ import {
 } from './connections/types.js';
 import {validateConnection} from './connections/validation.js';
 import {MongoOperation} from './mongodb/errors.js';
-import {
-  loadMongoCollectionDocuments,
-  listMongoCollections,
-  listMongoDatabases,
-  type MongoCollectionDocument,
-} from './mongodb/service.js';
+import type {MongoCollectionDocument} from './mongodb/service.js';
 import {AppView} from './app/AppView.js';
 import {
   createEmptyConnectionFormDraft,
   type ConnectionFormDraft,
 } from './app/ConnectionForm.js';
+import {
+  defaultDeleteConnection,
+  defaultLoadCollectionDocuments,
+  defaultLoadCollections,
+  defaultLoadDatabases,
+  defaultSaveConnection,
+  type SaveConnection,
+} from './app/defaultOperations.js';
 import {getConnectionErrorMessage, getDisplayError} from './app/errors.js';
 import {AppPhase} from './app/phases.js';
 import {RecoveryAction} from './app/ui.js';
@@ -36,8 +35,6 @@ import type {
   LoadDatabases,
 } from './types.js';
 
-type SaveConnection = (input: ConnectionInput) => Promise<DatabaseConnection[]>;
-
 type AppProps = {
   readonly loadCollectionDocuments?: LoadCollectionDocuments;
   readonly loadCollections?: LoadCollections;
@@ -47,18 +44,6 @@ type AppProps = {
   readonly deleteConnectionByName?: DeleteConnection;
   readonly saveConnection?: SaveConnection;
 };
-
-const defaultLoadDatabases: LoadDatabases = url => listMongoDatabases(url);
-const defaultLoadCollections: LoadCollections = (url, databaseName) =>
-  listMongoCollections(url, databaseName);
-const defaultLoadCollectionDocuments: LoadCollectionDocuments = (
-  url,
-  databaseName,
-  collectionName,
-  limit,
-) => loadMongoCollectionDocuments(url, databaseName, collectionName, limit);
-const defaultSaveConnection: SaveConnection = input => addConnection(input);
-const defaultDeleteConnection: DeleteConnection = name => deleteConnection(name);
 
 export function App({
   loadCollectionDocuments = defaultLoadCollectionDocuments,
@@ -89,6 +74,7 @@ export function App({
   );
   const [collectionDocuments, setCollectionDocuments] =
     useState<MongoCollectionDocument[]>([]);
+  const [selectedDocumentIndex, setSelectedDocumentIndex] = useState(0);
   const exitApp = onExit ?? exit;
   const {
     clearPendingDeletion,
@@ -119,6 +105,7 @@ export function App({
     setSelectedCollection(null);
     setCollections([]);
     setCollectionDocuments([]);
+    setSelectedDocumentIndex(0);
     setDatabases([]);
     setPhase(
       connections.length > 0
@@ -175,6 +162,7 @@ export function App({
     setCollections([]);
     setSelectedCollection(null);
     setCollectionDocuments([]);
+    setSelectedDocumentIndex(0);
     setSelectedDatabase(null);
 
     if (connection.type !== DatabaseType.MongoDB) {
@@ -191,12 +179,14 @@ export function App({
     setCollections([]);
     setSelectedCollection(null);
     setCollectionDocuments([]);
+    setSelectedDocumentIndex(0);
     setPhase(AppPhase.LoadingCollections);
   }, []);
 
   const selectCollection = useCallback((collectionName: string) => {
     setSelectedCollection(collectionName);
     setCollectionDocuments([]);
+    setSelectedDocumentIndex(0);
     setOperationError(null);
     setPhase(AppPhase.LoadingCollectionData);
   }, []);
@@ -206,6 +196,7 @@ export function App({
     setCollections([]);
     setSelectedCollection(null);
     setCollectionDocuments([]);
+    setSelectedDocumentIndex(0);
     setPhase(AppPhase.DatabasesLoaded);
   }, []);
 
@@ -213,12 +204,25 @@ export function App({
     setOperationError(null);
     setSelectedCollection(null);
     setCollectionDocuments([]);
+    setSelectedDocumentIndex(0);
     setPhase(
       collections.length > 0
         ? AppPhase.CollectionsLoaded
         : AppPhase.CollectionsEmpty,
     );
   }, [collections.length]);
+
+  const moveSelectedDocument = useCallback(
+    (direction: -1 | 1) => {
+      setSelectedDocumentIndex(currentIndex =>
+        Math.min(
+          Math.max(currentIndex + direction, 0),
+          Math.max(collectionDocuments.length - 1, 0),
+        ),
+      );
+    },
+    [collectionDocuments.length],
+  );
 
   const handleRecovery = useCallback((action: RecoveryAction) => {
     if (action === RecoveryAction.CreateConnection) {
@@ -255,6 +259,14 @@ export function App({
         phase === AppPhase.CollectionDataError)
     ) {
       returnToCollections();
+    }
+
+    if (phase === AppPhase.CollectionDataLoaded && input === 'j') {
+      moveSelectedDocument(1);
+    }
+
+    if (phase === AppPhase.CollectionDataLoaded && input === 'k') {
+      moveSelectedDocument(-1);
     }
   });
 
@@ -382,6 +394,7 @@ export function App({
         setCollections(nextCollections);
         setSelectedCollection(null);
         setCollectionDocuments([]);
+        setSelectedDocumentIndex(0);
         setPhase(
           nextCollections.length > 0
             ? AppPhase.CollectionsLoaded
@@ -427,6 +440,7 @@ export function App({
         }
 
         setCollectionDocuments(nextDocuments);
+        setSelectedDocumentIndex(0);
         setPhase(
           nextDocuments.length > 0
             ? AppPhase.CollectionDataLoaded
@@ -477,6 +491,7 @@ export function App({
       selectedConnection={selectedConnection}
       selectedCollection={selectedCollection}
       selectedDatabase={selectedDatabase}
+      selectedDocumentIndex={selectedDocumentIndex}
     />
   );
 }

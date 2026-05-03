@@ -215,10 +215,7 @@ export function App({
   const moveSelectedDocument = useCallback(
     (direction: -1 | 1) => {
       setSelectedDocumentIndex(currentIndex =>
-        Math.min(
-          Math.max(currentIndex + direction, 0),
-          Math.max(collectionDocuments.length - 1, 0),
-        ),
+        (currentIndex + direction + collectionDocuments.length) % collectionDocuments.length,
       );
     },
     [collectionDocuments.length],
@@ -242,6 +239,10 @@ export function App({
     if (input === 'q' && phase !== AppPhase.CreatingConnection) {
       exitApp();
       return;
+    }
+
+    if (input === 'h' && phase === AppPhase.DatabasesLoaded) {
+      showConnectionList();
     }
 
     if (

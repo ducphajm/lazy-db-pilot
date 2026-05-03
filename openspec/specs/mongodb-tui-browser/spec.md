@@ -19,17 +19,29 @@ The system SHALL collect a MongoDB connection URL in the connection creation for
 - **THEN** the system rejects the input and remains on the connection creation form with an error message
 
 ### Requirement: Connection List Navigation
-The system SHALL allow the user to move the focused item in selectable vertical lists with `j` and `k`.
+The system SHALL allow the user to move the focused item in selectable vertical lists with `j` and `k`, and SHALL wrap focus at list boundaries.
 
 #### Scenario: User moves focus down with j
 - **WHEN** the user is viewing a selectable vertical list with an item focused
+- **AND** the focused item is not the last item
 - **AND** the user presses `j`
-- **THEN** the focus moves to the next item unless the focused item is already the last item
+- **THEN** the focus moves to the next item
+
+#### Scenario: User wraps focus down from last item with j
+- **WHEN** the user is viewing a selectable vertical list with the last item focused
+- **AND** the user presses `j`
+- **THEN** the focus moves to the first item
 
 #### Scenario: User moves focus up with k
 - **WHEN** the user is viewing a selectable vertical list with an item focused
+- **AND** the focused item is not the first item
 - **AND** the user presses `k`
-- **THEN** the focus moves to the previous item unless the focused item is already the first item
+- **THEN** the focus moves to the previous item
+
+#### Scenario: User wraps focus up from first item with k
+- **WHEN** the user is viewing a selectable vertical list with the first item focused
+- **AND** the user presses `k`
+- **THEN** the focus moves to the last item
 
 ### Requirement: Saved MongoDB Connection Selection
 The system SHALL allow the user to select a saved MongoDB connection before browsing databases.
@@ -52,6 +64,19 @@ The system SHALL display database names available through the selected MongoDB c
 #### Scenario: Connection has no databases
 - **WHEN** the system successfully connects to MongoDB through the selected MongoDB connection and no databases are available
 - **THEN** the terminal UI displays an empty-state message and allows the user to return to saved connection selection or connection creation
+
+### Requirement: Database List Back Navigation
+The system SHALL allow the user to navigate from the MongoDB database list back to the saved connection list with Vim-style navigation.
+
+#### Scenario: User returns from loaded databases to saved connections
+- **WHEN** the user is viewing the loaded database list for a selected MongoDB connection
+- **AND** the user presses `h`
+- **THEN** the terminal UI displays the saved connection list
+- **AND** the system does not require the user to restart the terminal UI
+
+#### Scenario: Database list shows saved connection help
+- **WHEN** the user is viewing the loaded database list for a selected MongoDB connection
+- **THEN** the terminal UI shows concise help text that names `h` as the key to return to saved connections
 
 ### Requirement: MongoDB Database Selection
 The system SHALL allow the user to select one listed MongoDB database before loading collections.
@@ -96,14 +121,28 @@ The system SHALL display loaded collection documents as vertically stacked docum
 
 #### Scenario: User moves selected document down
 - **WHEN** the user is viewing loaded collection document cards with a selected document
+- **AND** the selected document is not the last document
 - **AND** the user presses `j`
-- **THEN** the selected document moves to the next document card unless the selected document is already the last document
+- **THEN** the selected document moves to the next document card
+- **AND** the newly selected document card is highlighted with the selected color
+
+#### Scenario: User wraps selected document down from last document
+- **WHEN** the user is viewing loaded collection document cards with the last document selected
+- **AND** the user presses `j`
+- **THEN** the selected document moves to the first document card
 - **AND** the newly selected document card is highlighted with the selected color
 
 #### Scenario: User moves selected document up
 - **WHEN** the user is viewing loaded collection document cards with a selected document
+- **AND** the selected document is not the first document
 - **AND** the user presses `k`
-- **THEN** the selected document moves to the previous document card unless the selected document is already the first document
+- **THEN** the selected document moves to the previous document card
+- **AND** the newly selected document card is highlighted with the selected color
+
+#### Scenario: User wraps selected document up from first document
+- **WHEN** the user is viewing loaded collection document cards with the first document selected
+- **AND** the user presses `k`
+- **THEN** the selected document moves to the last document card
 - **AND** the newly selected document card is highlighted with the selected color
 
 #### Scenario: Collection has no documents

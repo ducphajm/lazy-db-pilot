@@ -83,7 +83,7 @@ describe('App', () => {
     expect(instance.lastFrame()).not.toContain('secret');
   });
 
-  it('uses j and k navigation without moving beyond list bounds', async () => {
+  it('wraps j and k navigation in selectable lists', async () => {
     const loadCollections = vi.fn(async () => ['users']);
     const instance = render(
       <App
@@ -98,15 +98,20 @@ describe('App', () => {
     await expectFrame(instance, 'Saved connections');
     instance.stdin.write('\r');
     await expectFrame(instance, 'Databases loaded.');
+    expect(instance.lastFrame()).toContain('Press h to return to saved connections');
 
     instance.stdin.write('j');
     await expectFrame(instance, '> app');
     instance.stdin.write('j');
+    await expectFrame(instance, '> admin');
+    instance.stdin.write('k');
     await expectFrame(instance, '> app');
     instance.stdin.write('k');
     await expectFrame(instance, '> admin');
-    instance.stdin.write('k');
-    await expectFrame(instance, '> admin');
+    instance.stdin.write('h');
+    await expectFrame(instance, 'Saved connections');
+    instance.stdin.write('\r');
+    await expectFrame(instance, 'Databases loaded.');
     instance.stdin.write('\r');
 
     await expectFrame(instance, 'Collections in admin');
@@ -149,7 +154,7 @@ describe('App', () => {
     expect(instance.lastFrame()).toContain('> Document 1');
   });
 
-  it('moves selected document cards with j and k inside bounds', async () => {
+  it('wraps selected document cards with j and k', async () => {
     const instance = render(
       <App
         loadConnectionsList={async () => [
@@ -175,9 +180,9 @@ describe('App', () => {
     instance.stdin.write('j');
     await expectFrame(instance, '> Document 2');
     instance.stdin.write('j');
-    await expectFrame(instance, '> Document 2');
-    instance.stdin.write('k');
     await expectFrame(instance, '> Document 1');
+    instance.stdin.write('k');
+    await expectFrame(instance, '> Document 2');
     instance.stdin.write('k');
     await expectFrame(instance, '> Document 1');
   });

@@ -35,12 +35,12 @@ export function SelectableList<T>({
     }
 
     if (key.downArrow || input === 'j') {
-      setFocusedIndex(index => Math.min(index + 1, items.length - 1));
+      setFocusedIndex(index => (index + 1) % items.length);
       return;
     }
 
     if (key.upArrow || input === 'k') {
-      setFocusedIndex(index => Math.max(index - 1, 0));
+      setFocusedIndex(index => (index + items.length - 1) % items.length);
       return;
     }
 

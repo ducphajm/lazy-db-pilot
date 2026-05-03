@@ -169,6 +169,7 @@ export function AppView({
           items={toListItems(databases)}
           onSelect={onSelectDatabase}
         />
+        <Text dimColor>Press h to return to saved connections, q or Ctrl+C to exit.</Text>
       </Screen>
     );
   }

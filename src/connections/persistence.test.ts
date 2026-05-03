@@ -4,11 +4,13 @@ import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 import {
   addConnection,
+  deleteConnection,
   getConnectionsFilePath,
   loadConnections,
   saveConnections,
 } from './persistence.js';
 import {ConnectionEnvironment, DatabaseType} from './types.js';
+import type {DatabaseConnection} from './types.js';
 
 let directory: string;
 
@@ -101,4 +103,71 @@ describe('connection persistence', () => {
     await expect(readFile(getConnectionsFilePath(directory), 'utf8')).resolves
       .toBe('[]\n');
   });
+
+  it('deletes one connection by exact name', async () => {
+    await saveConnections(
+      [
+        connection('Local Mongo', DatabaseType.MongoDB),
+        connection('Redis', DatabaseType.Redis),
+      ],
+      {directory},
+    );
+
+    await expect(deleteConnection('Local Mongo', {directory})).resolves.toEqual([
+      connection('Redis', DatabaseType.Redis),
+    ]);
+    await expect(loadConnections({directory})).resolves.toEqual([
+      connection('Redis', DatabaseType.Redis),
+    ]);
+  });
+
+  it('deletes the last connection', async () => {
+    await saveConnections([connection('Redis', DatabaseType.Redis)], {directory});
+
+    await expect(deleteConnection('Redis', {directory})).resolves.toEqual([]);
+    await expect(readFile(getConnectionsFilePath(directory), 'utf8')).resolves
+      .toBe('[]\n');
+  });
+
+  it('leaves records unchanged when deleting an absent name', async () => {
+    const records = [
+      connection('Local Mongo', DatabaseType.MongoDB),
+      connection('Redis', DatabaseType.Redis),
+    ];
+
+    await saveConnections(records, {directory});
+
+    await expect(deleteConnection('Missing', {directory})).resolves.toEqual(
+      records,
+    );
+    await expect(loadConnections({directory})).resolves.toEqual(records);
+  });
 });
+
+function connection(name: string, type: DatabaseType): DatabaseConnection {
+  switch (type) {
+    case DatabaseType.MongoDB:
+      return {
+        name,
+        type,
+        environment: ConnectionEnvironment.Local,
+        details: {url: 'mongodb://localhost:27017'},
+      };
+    case DatabaseType.Redis:
+      return {
+        name,
+        type,
+        environment: ConnectionEnvironment.Local,
+        details: {},
+      };
+    case DatabaseType.SQLite:
+      return {
+        name,
+        type,
+        environment: ConnectionEnvironment.Local,
+        details: {},
+      };
+  }
+
+  throw new Error(`Unsupported database type: ${type satisfies never}`);
+}

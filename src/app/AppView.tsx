@@ -7,7 +7,9 @@ import {SelectableList} from '../tui/SelectableList.js';
 import {ConnectionForm, type ConnectionFormDraft} from './ConnectionForm.js';
 import {AppPhase} from './phases.js';
 import {
+  ConfirmDeleteAction,
   ConnectionList,
+  DeleteConfirmation,
   LoadingScreen,
   RecoveryAction,
   RecoveryScreen,
@@ -23,6 +25,8 @@ export type AppViewProps = {
   readonly databases: readonly string[];
   readonly inputError: string | null;
   readonly onCreateConnection: () => void;
+  readonly onDeleteConnection: (connection: DatabaseConnection) => void;
+  readonly onDeleteConnectionConfirmation: (action: ConfirmDeleteAction) => void;
   readonly onSubmitConnectionForm: () => void;
   readonly onUpdateConnectionDraft: (draft: ConnectionFormDraft) => void;
   readonly onRecovery: (action: RecoveryAction) => void;
@@ -44,6 +48,8 @@ export function AppView({
   databases,
   inputError,
   onCreateConnection,
+  onDeleteConnection,
+  onDeleteConnectionConfirmation,
   onSubmitConnectionForm,
   onUpdateConnectionDraft,
   onRecovery,
@@ -76,6 +82,7 @@ export function AppView({
         <ConnectionList
           connections={connections}
           onCreate={onCreateConnection}
+          onDelete={onDeleteConnection}
           onSelect={onSelectConnection}
         />
       </Screen>
@@ -99,6 +106,19 @@ export function AppView({
 
   if (phase === AppPhase.SavingConnection) {
     return <LoadingScreen label="Saving connection" />;
+  }
+
+  if (phase === AppPhase.ConfirmingConnectionDeletion && selectedConnection !== null) {
+    return (
+      <DeleteConfirmation
+        connection={selectedConnection}
+        onSelect={onDeleteConnectionConfirmation}
+      />
+    );
+  }
+
+  if (phase === AppPhase.DeletingConnection) {
+    return <LoadingScreen label="Deleting connection" />;
   }
 
   if (phase === AppPhase.UnsupportedConnection) {

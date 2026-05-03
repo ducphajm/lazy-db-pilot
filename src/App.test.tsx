@@ -144,7 +144,7 @@ describe('App', () => {
       'users',
     );
     expect(instance.lastFrame()).toContain('profile');
-    expect(instance.lastFrame()).toContain('{"role":"admin"}');
+    expect(instance.lastFrame()).toContain('"role": "admin"');
   });
 
   it('handles collection data empty, failure, and back navigation states', async () => {

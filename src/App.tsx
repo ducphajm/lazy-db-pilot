@@ -1,6 +1,10 @@
 import {useApp, useInput} from 'ink';
 import {useCallback, useEffect, useState} from 'react';
-import {addConnection, loadConnections} from './connections/persistence.js';
+import {
+  addConnection,
+  deleteConnection,
+  loadConnections,
+} from './connections/persistence.js';
 import {
   DatabaseType,
   type ConnectionInput,
@@ -22,6 +26,10 @@ import {
 import {getConnectionErrorMessage, getDisplayError} from './app/errors.js';
 import {AppPhase} from './app/phases.js';
 import {RecoveryAction} from './app/ui.js';
+import {
+  useConnectionDeletion,
+  type DeleteConnection,
+} from './app/useConnectionDeletion.js';
 import type {
   LoadCollectionDocuments,
   LoadCollections,
@@ -36,6 +44,7 @@ type AppProps = {
   readonly loadConnectionsList?: () => Promise<DatabaseConnection[]>;
   readonly loadDatabases?: LoadDatabases;
   readonly onExit?: () => void;
+  readonly deleteConnectionByName?: DeleteConnection;
   readonly saveConnection?: SaveConnection;
 };
 
@@ -49,6 +58,7 @@ const defaultLoadCollectionDocuments: LoadCollectionDocuments = (
   limit,
 ) => loadMongoCollectionDocuments(url, databaseName, collectionName, limit);
 const defaultSaveConnection: SaveConnection = input => addConnection(input);
+const defaultDeleteConnection: DeleteConnection = name => deleteConnection(name);
 
 export function App({
   loadCollectionDocuments = defaultLoadCollectionDocuments,
@@ -56,6 +66,7 @@ export function App({
   loadConnectionsList = loadConnections,
   loadDatabases = defaultLoadDatabases,
   onExit,
+  deleteConnectionByName = defaultDeleteConnection,
   saveConnection = defaultSaveConnection,
 }: AppProps): React.JSX.Element {
   const {exit} = useApp();
@@ -79,6 +90,19 @@ export function App({
   const [collectionDocuments, setCollectionDocuments] =
     useState<MongoCollectionDocument[]>([]);
   const exitApp = onExit ?? exit;
+  const {
+    clearPendingDeletion,
+    handleDeleteConfirmation,
+    requestConnectionDeletion,
+  } = useConnectionDeletion({
+    connections,
+    deleteConnectionByName,
+    phase,
+    setConnections,
+    setOperationError,
+    setPhase,
+    setSelectedConnection,
+  });
 
   const resetCreation = useCallback((message: string | null = null) => {
     setDraft(createEmptyConnectionFormDraft());
@@ -90,6 +114,7 @@ export function App({
   const showConnectionList = useCallback(() => {
     setOperationError(null);
     setSelectedConnection(null);
+    clearPendingDeletion();
     setSelectedDatabase(null);
     setSelectedCollection(null);
     setCollections([]);
@@ -100,7 +125,7 @@ export function App({
         ? AppPhase.ConnectionsLoaded
         : AppPhase.CreatingConnection,
     );
-  }, [connections.length]);
+  }, [clearPendingDeletion, connections.length]);
 
   const submitConnectionForm = useCallback(() => {
     const name = draft.name.trim();
@@ -439,6 +464,8 @@ export function App({
       databases={databases}
       inputError={inputError}
       onCreateConnection={() => resetCreation()}
+      onDeleteConnection={requestConnectionDeletion}
+      onDeleteConnectionConfirmation={handleDeleteConfirmation}
       onRecovery={handleRecovery}
       onSelectConnection={selectConnection}
       onSelectCollection={selectCollection}

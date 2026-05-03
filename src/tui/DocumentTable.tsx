@@ -17,7 +17,7 @@ export function DocumentTable({
       MAX_CELL_WIDTH,
       Math.max(
         column.length,
-        ...rows.map(row => row[index]?.length ?? 0),
+        ...rows.flatMap(row => getCellLines(row[index] ?? '').map(line => line.length)),
       ),
     ),
   );
@@ -26,9 +26,11 @@ export function DocumentTable({
     <Box flexDirection="column">
       <Text>{formatRow(columns, widths)}</Text>
       <Text dimColor>{formatRow(widths.map(width => '-'.repeat(width)), widths)}</Text>
-      {rows.map((row, index) => (
-        <Text key={index}>{formatRow(row, widths)}</Text>
-      ))}
+      {rows.flatMap((row, rowIndex) =>
+        formatRowLines(row, widths).map((line, lineIndex) => (
+          <Text key={`${rowIndex}:${lineIndex}`}>{line}</Text>
+        )),
+      )}
     </Box>
   );
 }
@@ -101,6 +103,25 @@ function formatRow(values: readonly string[], widths: readonly number[]): string
     .join(' | ');
 }
 
+function formatRowLines(
+  values: readonly string[],
+  widths: readonly number[],
+): string[] {
+  const cells = values.map(value => getCellLines(value).map(truncateCell));
+  const height = Math.max(1, ...cells.map(cell => cell.length));
+
+  return Array.from({length: height}, (_, lineIndex) =>
+    formatRow(
+      cells.map(cell => cell[lineIndex] ?? ''),
+      widths,
+    ),
+  );
+}
+
+function getCellLines(value: string): string[] {
+  return value.split('\n');
+}
+
 function truncateCell(value: string): string {
   if (value.length <= MAX_CELL_WIDTH) {
     return value;
@@ -115,7 +136,7 @@ function padCell(value: string, width: number): string {
 
 function stringifyNestedValue(value: object): string {
   try {
-    return JSON.stringify(value) ?? String(value);
+    return JSON.stringify(value, null, 2) ?? String(value);
   } catch {
     return String(value);
   }

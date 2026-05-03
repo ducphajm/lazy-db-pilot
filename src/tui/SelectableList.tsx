@@ -1,4 +1,5 @@
 import {Box, Text, useInput} from 'ink';
+import type {Key} from 'ink';
 import {useEffect, useState} from 'react';
 
 export type SelectableListItem<T> = {
@@ -9,9 +10,11 @@ export type SelectableListItem<T> = {
 
 export function SelectableList<T>({
   items,
+  onFocusedInput,
   onSelect,
 }: {
   readonly items: readonly SelectableListItem<T>[];
+  readonly onFocusedInput?: (input: string, key: Key, item: T) => boolean;
   readonly onSelect: (value: T) => void;
 }): React.JSX.Element {
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -22,6 +25,15 @@ export function SelectableList<T>({
   }, [itemKeys]);
 
   useInput((input, key) => {
+    const focusedItem = items[focusedIndex];
+
+    if (
+      focusedItem !== undefined &&
+      onFocusedInput?.(input, key, focusedItem.value) === true
+    ) {
+      return;
+    }
+
     if (key.downArrow || input === 'j') {
       setFocusedIndex(index => Math.min(index + 1, items.length - 1));
       return;
@@ -33,8 +45,6 @@ export function SelectableList<T>({
     }
 
     if (key.return || input === 'l') {
-      const focusedItem = items[focusedIndex];
-
       if (focusedItem !== undefined) {
         onSelect(focusedItem.value);
       }

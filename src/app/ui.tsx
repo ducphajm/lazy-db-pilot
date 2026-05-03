@@ -1,4 +1,4 @@
-import {Box} from 'ink';
+import {Box, Text} from 'ink';
 import {Spinner, StatusMessage} from '@inkjs/ui';
 import type {ReactNode} from 'react';
 import {DatabaseType, ConnectionEnvironment} from '../connections/types.js';
@@ -10,6 +10,11 @@ enum ConnectionListAction {
   CreateConnection = 'create-connection',
 }
 
+export enum ConfirmDeleteAction {
+  Cancel = 'cancel',
+  Delete = 'delete',
+}
+
 export enum RecoveryAction {
   CreateConnection = 'create-connection',
   SavedConnections = 'saved-connections',
@@ -18,10 +23,12 @@ export enum RecoveryAction {
 export function ConnectionList({
   connections,
   onCreate,
+  onDelete,
   onSelect,
 }: {
   readonly connections: readonly DatabaseConnection[];
   readonly onCreate: () => void;
+  readonly onDelete: (connection: DatabaseConnection) => void;
   readonly onSelect: (connection: DatabaseConnection) => void;
 }): React.JSX.Element {
   const items: SelectableListItem<DatabaseConnection | ConnectionListAction>[] =
@@ -39,17 +46,45 @@ export function ConnectionList({
     ];
 
   return (
-    <SelectableList
-      items={items}
-      onSelect={value => {
-        if (value === ConnectionListAction.CreateConnection) {
-          onCreate();
-          return;
-        }
+    <Box flexDirection="column">
+      <SelectableList
+        items={items}
+        onFocusedInput={(input, _key, value) => {
+          if (input !== 'd' || value === ConnectionListAction.CreateConnection) {
+            return false;
+          }
 
-        onSelect(value);
-      }}
-    />
+          onDelete(value);
+          return true;
+        }}
+        onSelect={value => {
+          if (value === ConnectionListAction.CreateConnection) {
+            onCreate();
+            return;
+          }
+
+          onSelect(value);
+        }}
+      />
+      <Text dimColor>Enter/l select, d delete, q exit.</Text>
+    </Box>
+  );
+}
+
+export function DeleteConfirmation({
+  connection,
+  onSelect,
+}: {
+  readonly connection: DatabaseConnection;
+  readonly onSelect: (action: ConfirmDeleteAction) => void;
+}): React.JSX.Element {
+  return (
+    <Screen>
+      <StatusMessage variant="warning">
+        Delete saved connection {connection.name}?
+      </StatusMessage>
+      <SelectableList items={deleteConfirmationItems} onSelect={onSelect} />
+    </Screen>
   );
 }
 
@@ -154,5 +189,18 @@ const recoveryItems: SelectableListItem<RecoveryAction>[] = [
     key: RecoveryAction.CreateConnection,
     label: 'Create connection',
     value: RecoveryAction.CreateConnection,
+  },
+];
+
+const deleteConfirmationItems: SelectableListItem<ConfirmDeleteAction>[] = [
+  {
+    key: ConfirmDeleteAction.Delete,
+    label: 'Delete connection',
+    value: ConfirmDeleteAction.Delete,
+  },
+  {
+    key: ConfirmDeleteAction.Cancel,
+    label: 'Cancel',
+    value: ConfirmDeleteAction.Cancel,
   },
 ];

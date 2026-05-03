@@ -59,6 +59,18 @@ export async function addConnection(
   return nextConnections;
 }
 
+export async function deleteConnection(
+  name: string,
+  options: ConnectionStoreOptions = {},
+): Promise<DatabaseConnection[]> {
+  const connections = await loadConnections(options);
+  const nextConnections = connections.filter(connection => connection.name !== name);
+
+  await saveConnections(nextConnections, options);
+
+  return nextConnections;
+}
+
 export async function saveConnections(
   connections: readonly DatabaseConnection[],
   {directory = getDefaultConnectionDirectory()}: ConnectionStoreOptions = {},

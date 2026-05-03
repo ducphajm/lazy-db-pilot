@@ -62,16 +62,18 @@ describe('App', () => {
     expect(instance.lastFrame()).not.toContain('secret');
 
     instance.stdin.write('l');
-    await expectFrame(instance, 'Collections in admin');
+    await expectFrame(instance, '- users');
     expect(loadCollections).toHaveBeenCalledWith(
       'mongodb://user:secret@example',
       'admin',
     );
-    expect(instance.lastFrame()).toContain('> users');
+    expect(instance.lastFrame()).toContain('> [-] admin');
     expect(instance.lastFrame()).not.toContain('secret');
 
+    instance.stdin.write('j');
+    await expectFrame(instance, '>   - users');
     instance.stdin.write('\r');
-    await expectFrame(instance, 'Documents in users');
+    await expectFrame(instance, 'Ada');
     expect(loadCollectionDocuments).toHaveBeenCalledWith(
       'mongodb://user:secret@example',
       'admin',
@@ -98,23 +100,23 @@ describe('App', () => {
     await expectFrame(instance, 'Saved connections');
     instance.stdin.write('\r');
     await expectFrame(instance, 'Databases loaded.');
-    expect(instance.lastFrame()).toContain('Press h to return to saved connections');
+    expect(instance.lastFrame()).toContain('> [+] admin');
 
     instance.stdin.write('j');
-    await expectFrame(instance, '> app');
+    await expectFrame(instance, '> [+] app');
     instance.stdin.write('j');
-    await expectFrame(instance, '> admin');
+    await expectFrame(instance, '> [+] admin');
     instance.stdin.write('k');
-    await expectFrame(instance, '> app');
+    await expectFrame(instance, '> [+] app');
     instance.stdin.write('k');
-    await expectFrame(instance, '> admin');
-    instance.stdin.write('h');
+    await expectFrame(instance, '> [+] admin');
+    instance.stdin.write('\b');
     await expectFrame(instance, 'Saved connections');
     instance.stdin.write('\r');
     await expectFrame(instance, 'Databases loaded.');
     instance.stdin.write('\r');
 
-    await expectFrame(instance, 'Collections in admin');
+    await expectFrame(instance, '- users');
     expect(loadCollections).toHaveBeenCalledWith(
       'mongodb://example',
       'admin',
@@ -140,10 +142,12 @@ describe('App', () => {
     instance.stdin.write('\r');
     await expectFrame(instance, 'Databases loaded.');
     instance.stdin.write('\r');
-    await expectFrame(instance, 'Collections in admin');
+    await expectFrame(instance, '- users');
+    instance.stdin.write('j');
+    await expectFrame(instance, '>   - users');
     instance.stdin.write('l');
 
-    await expectFrame(instance, 'Documents in users');
+    await expectFrame(instance, 'Grace');
     expect(loadCollectionDocuments).toHaveBeenCalledWith(
       'mongodb://example',
       'admin',
@@ -173,7 +177,9 @@ describe('App', () => {
     instance.stdin.write('\r');
     await expectFrame(instance, 'Databases loaded.');
     instance.stdin.write('\r');
-    await expectFrame(instance, 'Collections in admin');
+    await expectFrame(instance, '- users');
+    instance.stdin.write('j');
+    await expectFrame(instance, '>   - users');
     instance.stdin.write('\r');
     await expectFrame(instance, '> Document 1');
 
@@ -203,11 +209,13 @@ describe('App', () => {
     emptyInstance.stdin.write('\r');
     await expectFrame(emptyInstance, 'Databases loaded.');
     emptyInstance.stdin.write('\r');
-    await expectFrame(emptyInstance, 'Collections in admin');
+    await expectFrame(emptyInstance, '- users');
+    emptyInstance.stdin.write('j');
+    await expectFrame(emptyInstance, '>   - users');
     emptyInstance.stdin.write('\r');
     await expectFrame(emptyInstance, 'No documents found in users.');
     emptyInstance.stdin.write('h');
-    await expectFrame(emptyInstance, 'Collections in admin');
+    await expectFrame(emptyInstance, '- users');
 
     const failingInstance = render(
       <App
@@ -229,7 +237,9 @@ describe('App', () => {
     failingInstance.stdin.write('\r');
     await expectFrame(failingInstance, 'Databases loaded.');
     failingInstance.stdin.write('\r');
-    await expectFrame(failingInstance, 'Collections in admin');
+    await expectFrame(failingInstance, '- users');
+    failingInstance.stdin.write('j');
+    await expectFrame(failingInstance, '>   - users');
     failingInstance.stdin.write('\r');
     await expectFrame(
       failingInstance,
@@ -237,7 +247,7 @@ describe('App', () => {
     );
     expect(failingInstance.lastFrame()).not.toContain('secret');
     failingInstance.stdin.write('h');
-    await expectFrame(failingInstance, 'Collections in admin');
+    await expectFrame(failingInstance, '- users');
   });
 
   it('validates connection creation input', async () => {

@@ -3,9 +3,11 @@ import type {MongoCollectionDocument} from '../mongodb/service.js';
 
 export function DocumentCardList({
   documents,
+  isFocused = true,
   selectedIndex,
 }: {
   readonly documents: readonly MongoCollectionDocument[];
+  readonly isFocused?: boolean;
   readonly selectedIndex: number;
 }): React.JSX.Element {
   return (
@@ -14,7 +16,7 @@ export function DocumentCardList({
         <DocumentCard
           document={document}
           documentIndex={index}
-          isSelected={index === selectedIndex}
+          isSelected={isFocused && index === selectedIndex}
           key={getDocumentKey(document, index)}
         />
       ))}

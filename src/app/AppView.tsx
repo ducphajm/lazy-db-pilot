@@ -2,9 +2,8 @@ import {Text} from 'ink';
 import {StatusMessage} from '@inkjs/ui';
 import type {DatabaseConnection} from '../connections/types.js';
 import type {MongoCollectionDocument} from '../mongodb/service.js';
-import {DocumentCardList} from '../tui/DocumentCardList.js';
-import {SelectableList} from '../tui/SelectableList.js';
 import {ConnectionForm, type ConnectionFormDraft} from './ConnectionForm.js';
+import {MongoBrowserLayout} from './MongoBrowserLayout.js';
 import {AppPhase} from './phases.js';
 import {
   ConfirmDeleteAction,
@@ -14,15 +13,18 @@ import {
   RecoveryAction,
   RecoveryScreen,
   Screen,
-  toListItems,
 } from './ui.js';
+import {
+  MongoBrowserContainer,
+  type MongoBrowserSidebarItem,
+} from './mongodbBrowser.js';
 
 export type AppViewProps = {
   readonly collectionDocuments: readonly MongoCollectionDocument[];
-  readonly collections: readonly string[];
+  readonly activeBrowserContainer: MongoBrowserContainer;
+  readonly browserSidebarItems: readonly MongoBrowserSidebarItem[];
   readonly connectionDraft: ConnectionFormDraft;
   readonly connections: readonly DatabaseConnection[];
-  readonly databases: readonly string[];
   readonly inputError: string | null;
   readonly onCreateConnection: () => void;
   readonly onDeleteConnection: (connection: DatabaseConnection) => void;
@@ -32,22 +34,20 @@ export type AppViewProps = {
   readonly onUpdateConnectionDraft: (draft: ConnectionFormDraft) => void;
   readonly onRecovery: (action: RecoveryAction) => void;
   readonly onSelectConnection: (connection: DatabaseConnection) => void;
-  readonly onSelectCollection: (collectionName: string) => void;
-  readonly onSelectDatabase: (databaseName: string) => void;
   readonly operationError: string | null;
   readonly phase: AppPhase;
   readonly selectedConnection: DatabaseConnection | null;
   readonly selectedCollection: string | null;
-  readonly selectedDatabase: string | null;
   readonly selectedDocumentIndex: number;
+  readonly selectedSidebarIndex: number;
 };
 
 export function AppView({
   collectionDocuments,
-  collections,
+  activeBrowserContainer,
+  browserSidebarItems,
   connectionDraft,
   connections,
-  databases,
   inputError,
   onCreateConnection,
   onDeleteConnection,
@@ -57,14 +57,12 @@ export function AppView({
   onUpdateConnectionDraft,
   onRecovery,
   onSelectConnection,
-  onSelectCollection,
-  onSelectDatabase,
   operationError,
   phase,
   selectedConnection,
   selectedCollection,
-  selectedDatabase,
   selectedDocumentIndex,
+  selectedSidebarIndex,
 }: AppViewProps): React.JSX.Element {
   if (phase === AppPhase.LoadingConnections) {
     return <LoadingScreen label="Loading saved connections" />;
@@ -164,93 +162,38 @@ export function AppView({
   }
 
   if (phase === AppPhase.DatabasesLoaded) {
-    return (
-      <Screen>
-        <StatusMessage variant="success">Databases loaded.</StatusMessage>
-        <Text>Select a database</Text>
-        <SelectableList
-          items={toListItems(databases)}
-          onSelect={onSelectDatabase}
-        />
-        <Text dimColor>Press h to return to saved connections, q or Ctrl+C to exit.</Text>
-      </Screen>
-    );
+    return renderBrowser();
   }
 
-  if (phase === AppPhase.LoadingCollections) {
-    return <LoadingScreen label="Loading collections" />;
+  if (
+    phase === AppPhase.LoadingCollections ||
+    phase === AppPhase.CollectionsLoaded ||
+    phase === AppPhase.CollectionsEmpty ||
+    phase === AppPhase.CollectionError ||
+    phase === AppPhase.LoadingCollectionData ||
+    phase === AppPhase.CollectionDataError ||
+    phase === AppPhase.CollectionDataEmpty ||
+    phase === AppPhase.CollectionDataLoaded
+  ) {
+    return renderBrowser();
   }
 
-  if (phase === AppPhase.CollectionError) {
+  return renderBrowser();
+
+  function renderBrowser(): React.JSX.Element {
+    void onRecovery;
+
     return (
-      <RecoveryScreen
-        message={operationError ?? 'Unable to load collections.'}
-        onSelect={onRecovery}
+      <MongoBrowserLayout
+        activeContainer={activeBrowserContainer}
+        collectionDocuments={collectionDocuments}
+        operationError={operationError}
+        phase={phase}
+        selectedCollection={selectedCollection}
+        selectedDocumentIndex={selectedDocumentIndex}
+        selectedSidebarIndex={selectedSidebarIndex}
+        sidebarItems={browserSidebarItems}
       />
     );
   }
-
-  if (phase === AppPhase.LoadingCollectionData) {
-    return (
-      <LoadingScreen
-        label={`Loading documents from ${selectedCollection ?? 'collection'}`}
-      />
-    );
-  }
-
-  if (phase === AppPhase.CollectionDataError) {
-    return (
-      <Screen>
-        <StatusMessage variant="error">
-          {operationError ?? 'Unable to load documents from the selected collection.'}
-        </StatusMessage>
-        <Text dimColor>Press h to go back, q or Ctrl+C to exit.</Text>
-      </Screen>
-    );
-  }
-
-  if (phase === AppPhase.CollectionDataEmpty) {
-    return (
-      <Screen>
-        <StatusMessage variant="warning">
-          No documents found in {selectedCollection ?? 'collection'}.
-        </StatusMessage>
-        <Text dimColor>Press h to go back, q or Ctrl+C to exit.</Text>
-      </Screen>
-    );
-  }
-
-  if (phase === AppPhase.CollectionDataLoaded) {
-    return (
-      <Screen>
-        <StatusMessage variant="success">
-          Documents in {selectedCollection ?? 'collection'}
-        </StatusMessage>
-        <DocumentCardList
-          documents={collectionDocuments}
-          selectedIndex={selectedDocumentIndex}
-        />
-        <Text dimColor>Press h to go back, q or Ctrl+C to exit.</Text>
-      </Screen>
-    );
-  }
-
-  return (
-    <Screen>
-      <StatusMessage variant="success">
-        {selectedDatabase === null
-          ? 'Collections loaded.'
-          : `Collections in ${selectedDatabase}`}
-      </StatusMessage>
-      {phase === AppPhase.CollectionsEmpty ? (
-        <Text>No collections found.</Text>
-      ) : (
-        <SelectableList
-          items={toListItems(collections)}
-          onSelect={onSelectCollection}
-        />
-      )}
-      <Text dimColor>Press h to go back, q or Ctrl+C to exit.</Text>
-    </Screen>
-  );
 }

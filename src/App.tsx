@@ -84,6 +84,7 @@ export function App({
     clearDocumentTabs,
     closeActiveDocumentTab,
     documentTabs,
+    moveActiveDocumentTab,
     moveSelectedDocument,
     openDocumentTab,
   } = useDocumentTabs({
@@ -252,6 +253,7 @@ export function App({
     exitApp,
     focusLeftSidebar,
     hasOpenDocumentTabs: documentTabs.length > 0,
+    moveActiveDocumentTab,
     moveSelectedDocument,
     phase,
     selectedSidebarIndex,

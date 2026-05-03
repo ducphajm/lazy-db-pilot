@@ -90,6 +90,63 @@ describe('App document tabs', () => {
     expect(countOccurrences(instance.lastFrame() ?? '', 'admin.users')).toBe(1);
   });
 
+  it('moves between open tabs with Tab and Shift+Tab without reloading tabs', async () => {
+    const loadCollectionDocuments = vi.fn(
+      async (
+        url: string,
+        databaseName: string,
+        collectionName: string,
+      ) => {
+        void url;
+        void databaseName;
+
+        return [{_id: collectionName, label: `${collectionName} data`}];
+      },
+    );
+    const instance = render(
+      <App
+        loadConnectionsList={async () => [
+          mongoConnection('Local Mongo', 'mongodb://example'),
+        ]}
+        loadDatabases={async () => ['admin']}
+        loadCollections={async () => ['users', 'orders', 'audit']}
+        loadCollectionDocuments={loadCollectionDocuments}
+      />,
+    );
+
+    await openCollection(instance, 'users');
+    await expectFrame(instance, 'users data');
+    instance.stdin.write('h');
+    await expectFrame(instance, '>   - users');
+    instance.stdin.write('j');
+    await expectFrame(instance, '>   - orders');
+    instance.stdin.write('\r');
+    await expectFrame(instance, 'orders data');
+    instance.stdin.write('h');
+    await expectFrame(instance, '>   - orders');
+    instance.stdin.write('j');
+    await expectFrame(instance, '>   - audit');
+    instance.stdin.write('\r');
+    await expectFrame(instance, 'audit data');
+
+    instance.stdin.write('\x1B[Z');
+    await expectFrame(instance, '[ admin.orders ]');
+    expect(instance.lastFrame()).toContain('orders data');
+
+    instance.stdin.write('\t');
+    await expectFrame(instance, '[ admin.audit ]');
+    expect(instance.lastFrame()).toContain('audit data');
+
+    instance.stdin.write('\t');
+    await expectFrame(instance, '[ admin.users ]');
+    expect(instance.lastFrame()).toContain('users data');
+
+    instance.stdin.write('\x1B[Z');
+    await expectFrame(instance, '[ admin.audit ]');
+    expect(instance.lastFrame()).toContain('audit data');
+    expect(loadCollectionDocuments).toHaveBeenCalledTimes(3);
+  });
+
   it('closes the active tab and shows an empty state after closing the last tab', async () => {
     const instance = render(
       <App

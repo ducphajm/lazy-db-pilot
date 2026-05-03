@@ -6,11 +6,13 @@ import {getDisplayError} from './errors.js';
 import {AppPhase} from './phases.js';
 import {
   CollectionDocumentTabStatus,
+  DocumentTabMoveDirection,
   createCollectionDocumentTabId,
   createLoadingCollectionDocumentTab,
   getActiveCollectionDocumentTab,
   getAdjacentDocumentTabId,
   getDocumentTabPhase,
+  getMovedDocumentTabId,
   type CollectionDocumentTab,
 } from './documentTabs.js';
 
@@ -27,6 +29,9 @@ export function useDocumentTabs({
   readonly clearDocumentTabs: () => void;
   readonly closeActiveDocumentTab: () => void;
   readonly documentTabs: readonly CollectionDocumentTab[];
+  readonly moveActiveDocumentTab: (
+    direction: DocumentTabMoveDirection,
+  ) => void;
   readonly moveSelectedDocument: (direction: -1 | 1) => void;
   readonly openDocumentTab: (input: {
     readonly collectionName: string;
@@ -112,6 +117,34 @@ export function useDocumentTabs({
       );
     },
     [activeDocumentTabId],
+  );
+
+  const moveActiveDocumentTab = useCallback(
+    (direction: DocumentTabMoveDirection) => {
+      setDocumentTabs(currentTabs => {
+        const nextActiveTabId = getMovedDocumentTabId(
+          currentTabs,
+          activeDocumentTabId,
+          direction,
+        );
+
+        if (nextActiveTabId === null) {
+          return currentTabs;
+        }
+
+        const nextActiveTab = getActiveCollectionDocumentTab(
+          currentTabs,
+          nextActiveTabId,
+        );
+
+        activeDocumentTabIdRef.current = nextActiveTabId;
+        setActiveDocumentTabId(nextActiveTabId);
+        setPhase(getDocumentTabPhase(nextActiveTab));
+
+        return currentTabs;
+      });
+    },
+    [activeDocumentTabId, setPhase],
   );
 
   const closeActiveDocumentTab = useCallback(() => {
@@ -220,6 +253,7 @@ export function useDocumentTabs({
     clearDocumentTabs,
     closeActiveDocumentTab,
     documentTabs,
+    moveActiveDocumentTab,
     moveSelectedDocument,
     openDocumentTab,
   };

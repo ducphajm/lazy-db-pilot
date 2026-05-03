@@ -1,5 +1,6 @@
 import {useInput} from 'ink';
 import type {Dispatch, SetStateAction} from 'react';
+import {DocumentTabMoveDirection} from './documentTabs.js';
 import {AppPhase} from './phases.js';
 import {
   canFocusMongoBrowserRightData,
@@ -19,6 +20,9 @@ export type UseAppInputParams = {
   readonly exitApp: () => void;
   readonly focusLeftSidebar: () => void;
   readonly hasOpenDocumentTabs: boolean;
+  readonly moveActiveDocumentTab: (
+    direction: DocumentTabMoveDirection,
+  ) => void;
   readonly moveSelectedDocument: (direction: -1 | 1) => void;
   readonly phase: AppPhase;
   readonly selectedSidebarIndex: number;
@@ -40,6 +44,7 @@ export function useAppInput({
   exitApp,
   focusLeftSidebar,
   hasOpenDocumentTabs,
+  moveActiveDocumentTab,
   moveSelectedDocument,
   phase,
   selectedSidebarIndex,
@@ -85,7 +90,7 @@ export function useAppInput({
     }
 
     if (activeBrowserContainer === MongoBrowserContainer.RightData) {
-      handleRightContainerInput(input, key.backspace);
+      handleRightContainerInput(input, key.backspace, key.shift, key.tab);
       return;
     }
 
@@ -95,7 +100,18 @@ export function useAppInput({
   function handleRightContainerInput(
     input: string,
     isBackspace: boolean,
+    isShift: boolean,
+    isTab: boolean,
   ): void {
+    if (hasOpenDocumentTabs && isTab) {
+      moveActiveDocumentTab(
+        isShift
+          ? DocumentTabMoveDirection.Backward
+          : DocumentTabMoveDirection.Forward,
+      );
+      return;
+    }
+
     if (input === 'h' || isBackspace) {
       focusLeftSidebar();
       return;

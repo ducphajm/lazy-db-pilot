@@ -8,6 +8,11 @@ export enum CollectionDocumentTabStatus {
   Loading = 'loading',
 }
 
+export enum DocumentTabMoveDirection {
+  Backward = -1,
+  Forward = 1,
+}
+
 export type CollectionDocumentTab = {
   readonly collectionName: string;
   readonly connectionName: string;
@@ -100,4 +105,24 @@ export function getAdjacentDocumentTabId(
     documentTabs[activeIndex - 1]?.id ??
     null
   );
+}
+
+export function getMovedDocumentTabId(
+  documentTabs: readonly CollectionDocumentTab[],
+  activeDocumentTabId: string | null,
+  direction: DocumentTabMoveDirection,
+): string | null {
+  if (activeDocumentTabId === null || documentTabs.length <= 1) {
+    return null;
+  }
+
+  const activeIndex = documentTabs.findIndex(tab => tab.id === activeDocumentTabId);
+
+  if (activeIndex === -1) {
+    return null;
+  }
+
+  return documentTabs[
+    (activeIndex + direction + documentTabs.length) % documentTabs.length
+  ]?.id ?? null;
 }

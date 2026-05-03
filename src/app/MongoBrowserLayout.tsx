@@ -75,7 +75,7 @@ export function MongoBrowserLayout({
         </BrowserPane>
       </Box>
       <Text dimColor>
-        Ctrl+h/Ctrl+l move focus, j/k move items, Enter/l open, x closes tab, q exits.
+        Ctrl+h/Ctrl+l move focus, j/k move items, Enter/l open, Tab/Shift+Tab move tabs, x closes tab, q exits.
       </Text>
     </Screen>
   );

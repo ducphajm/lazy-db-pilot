@@ -155,10 +155,67 @@ function getDocumentKey(
 
 function stringifyNestedValue(value: object): string {
   try {
+    const compactValue = getCompactExtendedJsonValue(value);
+
+    if (compactValue !== undefined) {
+      return JSON.stringify(compactValue) ?? String(value);
+    }
+
     return JSON.stringify(value, null, 2) ?? String(value);
   } catch {
     return String(value);
   }
+}
+
+function getCompactExtendedJsonValue(value: object): object | undefined {
+  if (isCompactExtendedJsonValue(value)) {
+    return value;
+  }
+
+  if (!isJsonSerializableObject(value)) {
+    return undefined;
+  }
+
+  const jsonValue = value.toJSON();
+
+  if (
+    typeof jsonValue === 'object' &&
+    jsonValue !== null &&
+    isCompactExtendedJsonValue(jsonValue)
+  ) {
+    return jsonValue;
+  }
+
+  return undefined;
+}
+
+function isCompactExtendedJsonValue(value: object): boolean {
+  if (Array.isArray(value)) {
+    return false;
+  }
+
+  const entries = Object.entries(value);
+
+  return (
+    entries.length === 1 &&
+    compactExtendedJsonKeys.has(entries[0]?.[0] ?? '') &&
+    isJsonScalar(entries[0]?.[1])
+  );
+}
+
+function isJsonSerializableObject(
+  value: object,
+): value is {toJSON: () => unknown} {
+  return 'toJSON' in value && typeof value.toJSON === 'function';
+}
+
+function isJsonScalar(value: unknown): boolean {
+  return (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  );
 }
 
 function isObjectIdLike(value: unknown): value is {toHexString: () => string} {
@@ -194,3 +251,21 @@ function truncateLine(line: string): string {
 
 const maxVisibleFieldLines = 12;
 const maxVisibleLineLength = 180;
+
+const compactExtendedJsonKeys = new Set([
+  '$binary',
+  '$code',
+  '$date',
+  '$dbPointer',
+  '$maxKey',
+  '$minKey',
+  '$numberDecimal',
+  '$numberDouble',
+  '$numberInt',
+  '$numberLong',
+  '$oid',
+  '$regularExpression',
+  '$symbol',
+  '$timestamp',
+  '$undefined',
+]);

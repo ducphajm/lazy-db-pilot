@@ -1,6 +1,7 @@
 import React from 'react';
 import {Box} from 'ink';
 import {cleanup, render} from 'ink-testing-library';
+import {Decimal128} from 'mongodb';
 import {afterEach, describe, expect, it} from 'vitest';
 import {
   DocumentCardList,
@@ -27,6 +28,15 @@ describe('DocumentCardList', () => {
       '2026-05-03T00:00:00.000Z',
     );
     expect(formatDocumentValue(objectId)).toBe('507f1f77bcf86cd799439011');
+  });
+
+  it('formats scalar extended JSON wrappers on one line', () => {
+    expect(formatDocumentValue({$numberDecimal: '1743.3120612409582'})).toBe(
+      '{"$numberDecimal":"1743.3120612409582"}',
+    );
+    expect(
+      formatDocumentValue(Decimal128.fromString('1743.3120612409582')),
+    ).toBe('{"$numberDecimal":"1743.3120612409582"}');
   });
 
   it('orders _id before other vertical fields', () => {

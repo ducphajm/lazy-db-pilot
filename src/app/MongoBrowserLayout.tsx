@@ -1,5 +1,6 @@
 import {Box, Text, useStdout} from 'ink';
 import {Spinner, StatusMessage} from '@inkjs/ui';
+import {memo} from 'react';
 import type {ReactNode} from 'react';
 import {DocumentCardList} from '../tui/DocumentCardList.js';
 import {
@@ -40,46 +41,92 @@ export function MongoBrowserLayout({
     <Screen>
       <StatusMessage variant="success">Databases loaded.</StatusMessage>
       <Box alignItems="flex-start" gap={1} height={browserHeight}>
-        <BrowserPane
-          isFocused={activeContainer === MongoBrowserContainer.LeftSidebar}
-          title="Databases"
-          width={32}
-        >
-          {sidebarItems.map((item, index) => (
-            <SidebarItem
-              isFocused={
-                activeContainer === MongoBrowserContainer.LeftSidebar &&
-                index === selectedSidebarIndex
-              }
-              item={item}
-              key={item.key}
-            />
-          ))}
-          <SidebarFeedback phase={phase} />
-        </BrowserPane>
-        <BrowserPane
-          flexGrow={1}
-          flexShrink={1}
-          isFocused={activeContainer === MongoBrowserContainer.RightData}
-          title="Documents"
-        >
-          <DocumentTabStrip
-            activeDocumentTab={activeDocumentTab}
-            documentTabs={documentTabs}
-          />
-          <Box flexDirection="column" flexShrink={1} overflowY="hidden">
-            <RightDataContent
-              activeDocumentTab={activeDocumentTab}
-              isFocused={activeContainer === MongoBrowserContainer.RightData}
-              operationError={operationError}
-            />
-          </Box>
-        </BrowserPane>
+        <MemoizedLeftBrowserPane
+          activeContainer={activeContainer}
+          phase={phase}
+          selectedSidebarIndex={selectedSidebarIndex}
+          sidebarItems={sidebarItems}
+        />
+        <MemoizedRightBrowserPane
+          activeContainer={activeContainer}
+          activeDocumentTab={activeDocumentTab}
+          documentTabs={documentTabs}
+          operationError={operationError}
+        />
       </Box>
       <Text dimColor>
         Ctrl+h/Ctrl+l move focus, j/k move items, Enter/l open, Tab/Shift+Tab move tabs, x closes tab, q exits.
       </Text>
     </Screen>
+  );
+}
+
+const MemoizedLeftBrowserPane = memo(LeftBrowserPane);
+
+function LeftBrowserPane({
+  activeContainer,
+  phase,
+  selectedSidebarIndex,
+  sidebarItems,
+}: {
+  readonly activeContainer: MongoBrowserContainer;
+  readonly phase: AppPhase;
+  readonly selectedSidebarIndex: number;
+  readonly sidebarItems: readonly MongoBrowserSidebarItem[];
+}): React.JSX.Element {
+  return (
+    <BrowserPane
+      isFocused={activeContainer === MongoBrowserContainer.LeftSidebar}
+      title="Databases"
+      width={32}
+    >
+      {sidebarItems.map((item, index) => (
+        <MemoizedSidebarItem
+          isFocused={
+            activeContainer === MongoBrowserContainer.LeftSidebar &&
+            index === selectedSidebarIndex
+          }
+          item={item}
+          key={item.key}
+        />
+      ))}
+      <SidebarFeedback phase={phase} />
+    </BrowserPane>
+  );
+}
+
+const MemoizedRightBrowserPane = memo(RightBrowserPane);
+
+function RightBrowserPane({
+  activeContainer,
+  activeDocumentTab,
+  documentTabs,
+  operationError,
+}: {
+  readonly activeContainer: MongoBrowserContainer;
+  readonly activeDocumentTab: CollectionDocumentTab | null;
+  readonly documentTabs: readonly CollectionDocumentTab[];
+  readonly operationError: string | null;
+}): React.JSX.Element {
+  return (
+    <BrowserPane
+      flexGrow={1}
+      flexShrink={1}
+      isFocused={activeContainer === MongoBrowserContainer.RightData}
+      title="Documents"
+    >
+      <DocumentTabStrip
+        activeDocumentTab={activeDocumentTab}
+        documentTabs={documentTabs}
+      />
+      <Box flexDirection="column" flexShrink={1} overflowY="hidden">
+        <RightDataContent
+          activeDocumentTab={activeDocumentTab}
+          isFocused={activeContainer === MongoBrowserContainer.RightData}
+          operationError={operationError}
+        />
+      </Box>
+    </BrowserPane>
   );
 }
 
@@ -116,6 +163,8 @@ function BrowserPane({
     </Box>
   );
 }
+
+const MemoizedSidebarItem = memo(SidebarItem);
 
 function SidebarItem({
   isFocused,

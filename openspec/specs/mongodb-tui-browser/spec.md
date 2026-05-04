@@ -249,12 +249,12 @@ The system SHALL load documents from the selected MongoDB database when the user
 - **AND** focus moves to the right data container
 
 ### Requirement: Collection Data Table Display
-The system SHALL display loaded collection documents in the active right-side tab as vertically stacked document cards, SHALL render each document's field information vertically within its card, and SHALL highlight the selected document card with a distinct color when the right data container is focused.
+The system SHALL display loaded collection documents in the active right-side tab as vertically stacked document cards, SHALL render every top-level field in each document vertically within its card, SHALL keep overflowing document card content hidden by the Documents view container, and SHALL highlight the selected document card with a distinct color when the right data container is focused.
 
 #### Scenario: Collection has documents
 - **WHEN** the system successfully loads one or more documents from a collection
 - **THEN** the terminal UI displays each document in an individual card in the active collection tab
-- **AND** each card displays that document's fields vertically
+- **AND** each card displays every top-level field from that document vertically
 - **AND** one document card is selected by default
 - **AND** the selected document card is highlighted with a distinct color when the right data container is focused
 
@@ -298,6 +298,12 @@ The system SHALL display loaded collection documents in the active right-side ta
 #### Scenario: Collection document has scalar values
 - **WHEN** the system displays a document field whose value is a string, number, boolean, date, ObjectId-like value, null, or undefined
 - **THEN** the terminal UI renders the scalar value in compact field form inside the document card
+
+#### Scenario: Collection document has more fields than fit in the Documents view
+- **WHEN** the system displays a document with more top-level fields than fit in the visible Documents view area
+- **THEN** the terminal UI renders every top-level field in the document card
+- **AND** the Documents view keeps overflowing content hidden within the right data container
+- **AND** the terminal UI does not replace undisplayed fields with a hidden-field count summary
 
 ### Requirement: Collection Data Feedback
 The system SHALL show clear terminal UI feedback in the active collection tab for loading and failure states while loading collection data.

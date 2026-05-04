@@ -33,8 +33,7 @@ function DocumentCard({
   readonly documentIndex: number;
   readonly isSelected: boolean;
 }): React.JSX.Element {
-  const fieldNames = getVisibleDocumentFieldNames(document);
-  const hiddenFieldCount = getHiddenFieldCount(document, fieldNames);
+  const fieldNames = getDocumentFieldNames(document);
 
   return (
     <Box
@@ -53,9 +52,6 @@ function DocumentCard({
           value={document[fieldName]}
         />
       ))}
-      {hiddenFieldCount > 0 ? (
-        <Text dimColor>... {hiddenFieldCount} more fields hidden</Text>
-      ) : null}
     </Box>
   );
 }
@@ -179,12 +175,6 @@ function isObjectIdLike(value: unknown): value is {toHexString: () => string} {
   );
 }
 
-function getVisibleDocumentFieldNames(
-  document: MongoCollectionDocument,
-): string[] {
-  return getDocumentFieldNames(document).slice(0, maxVisibleDocumentFields);
-}
-
 function getDocumentValuePreview(value: string): {
   readonly hiddenLineCount: number;
   readonly value: string;
@@ -207,13 +197,5 @@ function truncateLine(line: string): string {
   return `${line.slice(0, maxVisibleLineLength)}... ${line.length - maxVisibleLineLength} more chars hidden`;
 }
 
-function getHiddenFieldCount(
-  document: MongoCollectionDocument,
-  visibleFieldNames: readonly string[],
-): number {
-  return Math.max(0, Object.keys(document).length - visibleFieldNames.length);
-}
-
-const maxVisibleDocumentFields = 30;
 const maxVisibleFieldLines = 12;
 const maxVisibleLineLength = 180;

@@ -82,11 +82,10 @@ describe('DocumentCardList', () => {
     expect(frame).not.toContain('{"role":"admin"');
   });
 
-  it('truncates oversized document fields', () => {
+  it('truncates oversized document values', () => {
     const document = Object.fromEntries([
       ['_id', '1'],
       ['startup_log', Array.from({length: 20}, (_, index) => `line-${index}`).join('\n')],
-      ...Array.from({length: 31}, (_, index) => [`field_${index}`, index]),
     ]);
     const instance = render(
       <DocumentCardList documents={[document]} selectedIndex={0} />,
@@ -96,6 +95,22 @@ describe('DocumentCardList', () => {
 
     expect(frame).toContain('startup_log:');
     expect(frame).toContain('... 8 more lines hidden');
-    expect(frame).toContain('... 3 more fields hidden');
+  });
+
+  it('renders all top-level document fields without hidden-field summaries', () => {
+    const document = Object.fromEntries([
+      ['_id', '1'],
+      ...Array.from({length: 36}, (_, index) => [`field_${index}`, index]),
+    ]);
+    const instance = render(
+      <DocumentCardList documents={[document]} selectedIndex={0} />,
+    );
+
+    const frame = instance.lastFrame() ?? '';
+
+    expect(frame).toContain('_id: 1');
+    expect(frame).toContain('field_0: 0');
+    expect(frame).toContain('field_35: 35');
+    expect(frame).not.toContain('more fields hidden');
   });
 });

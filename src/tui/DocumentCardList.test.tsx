@@ -1,4 +1,5 @@
 import React from 'react';
+import {Box} from 'ink';
 import {cleanup, render} from 'ink-testing-library';
 import {afterEach, describe, expect, it} from 'vitest';
 import {
@@ -112,5 +113,23 @@ describe('DocumentCardList', () => {
     expect(frame).toContain('field_0: 0');
     expect(frame).toContain('field_35: 35');
     expect(frame).not.toContain('more fields hidden');
+  });
+
+  it('keeps document cards from shrinking to a single trailing field', () => {
+    const documents = Array.from({length: 10}, (_, index) => ({
+      _id: String(index),
+      name: `name-${index}`,
+      updatedAt: '2026-05-04T00:00:00.000Z',
+    }));
+    const instance = render(
+      <Box height={6} overflowY="hidden">
+        <DocumentCardList documents={documents} selectedIndex={0} />
+      </Box>,
+    );
+
+    const frame = instance.lastFrame() ?? '';
+
+    expect(frame).toContain('_id: 0');
+    expect(frame).toContain('name: name-0');
   });
 });

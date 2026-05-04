@@ -39,6 +39,7 @@ function DocumentCard({
     <Box
       borderColor={isSelected ? 'cyan' : 'gray'}
       borderStyle="single"
+      flexShrink={0}
       flexDirection="column"
       paddingX={1}
     >

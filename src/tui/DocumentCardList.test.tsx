@@ -50,8 +50,8 @@ describe('DocumentCardList', () => {
 
     const frame = instance.lastFrame() ?? '';
 
-    expect(frame).toContain('Document 1');
-    expect(frame).toContain('> Document 2');
+    expect(frame).not.toContain('Document 1');
+    expect(frame).not.toContain('Document 2');
     expect(frame).toContain('_id: 1');
     expect(frame).toContain('name: Ada');
     expect(frame).toContain('active: false');

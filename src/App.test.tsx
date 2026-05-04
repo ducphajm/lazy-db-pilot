@@ -80,7 +80,7 @@ describe('App', () => {
       'users',
     );
     expect(instance.lastFrame()).toContain('_id');
-    expect(instance.lastFrame()).toContain('> Document 1');
+    expect(instance.lastFrame()).not.toContain('Document 1');
     expect(instance.lastFrame()).toContain('Ada');
     expect(instance.lastFrame()).not.toContain('secret');
   });
@@ -155,10 +155,10 @@ describe('App', () => {
     );
     expect(instance.lastFrame()).toContain('profile');
     expect(instance.lastFrame()).toContain('"role": "admin"');
-    expect(instance.lastFrame()).toContain('> Document 1');
+    expect(instance.lastFrame()).not.toContain('Document 1');
   });
 
-  it('wraps selected document cards with j and k', async () => {
+  it('keeps document cards visible while moving selection with j and k', async () => {
     const instance = render(
       <App
         loadConnectionsList={async () => [
@@ -181,16 +181,18 @@ describe('App', () => {
     instance.stdin.write('j');
     await expectFrame(instance, '>   - users');
     instance.stdin.write('\r');
-    await expectFrame(instance, '> Document 1');
+    await expectFrame(instance, '_id: 1');
+    expect(instance.lastFrame()).toContain('name: Grace');
+    expect(instance.lastFrame()).not.toContain('Document 1');
 
     instance.stdin.write('j');
-    await expectFrame(instance, '> Document 2');
+    await expectFrame(instance, 'name: Grace');
     instance.stdin.write('j');
-    await expectFrame(instance, '> Document 1');
+    await expectFrame(instance, 'name: Ada');
     instance.stdin.write('k');
-    await expectFrame(instance, '> Document 2');
+    await expectFrame(instance, 'name: Grace');
     instance.stdin.write('k');
-    await expectFrame(instance, '> Document 1');
+    await expectFrame(instance, 'name: Ada');
   });
 
   it('handles collection data empty, failure, and back navigation states', async () => {

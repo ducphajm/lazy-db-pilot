@@ -40,22 +40,22 @@ describe('MongoDB split browser', () => {
     instance.stdin.write('j');
     await expectFrame(instance, '>   - users');
     instance.stdin.write('\r');
-    await expectFrame(instance, '> Document 1');
+    await expectFrame(instance, '_id: 1');
 
     instance.stdin.write('\b');
     await expectFrame(instance, '>   - users');
     instance.stdin.write('j');
     await expectFrame(instance, '> [-] admin');
-    expect(instance.lastFrame()).toContain('Document 1');
+    expect(instance.lastFrame()).not.toContain('Document 1');
 
     instance.stdin.write('\n');
     await expectFrame(instance, '> [-] admin');
     instance.stdin.write('\f');
-    await expectFrame(instance, '> Document 1');
+    await expectFrame(instance, 'name: Ada');
     instance.stdin.write('j');
-    await expectFrame(instance, '> Document 2');
+    await expectFrame(instance, 'name: Grace');
     instance.stdin.write('\v');
-    await expectFrame(instance, '> Document 2');
+    await expectFrame(instance, 'name: Grace');
   });
 
   it('closes and opens database folders and returns to saved connections', async () => {

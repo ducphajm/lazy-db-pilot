@@ -169,7 +169,8 @@ describe('App document tabs', () => {
     );
 
     await openCollection(instance, 'users');
-    await expectFrame(instance, '> Document 1');
+    await expectFrame(instance, '_id: users');
+    expect(instance.lastFrame()).not.toContain('Document 1');
     instance.stdin.write('h');
     await expectFrame(instance, '>   - users');
     instance.stdin.write('j');

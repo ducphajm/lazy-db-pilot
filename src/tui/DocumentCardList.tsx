@@ -15,7 +15,6 @@ export function DocumentCardList({
       {documents.map((document, index) => (
         <DocumentCard
           document={document}
-          documentIndex={index}
           isSelected={isFocused && index === selectedIndex}
           key={getDocumentKey(document, index)}
         />
@@ -26,11 +25,9 @@ export function DocumentCardList({
 
 function DocumentCard({
   document,
-  documentIndex,
   isSelected,
 }: {
   readonly document: MongoCollectionDocument;
-  readonly documentIndex: number;
   readonly isSelected: boolean;
 }): React.JSX.Element {
   const fieldNames = getDocumentFieldNames(document);
@@ -43,9 +40,6 @@ function DocumentCard({
       flexDirection="column"
       paddingX={1}
     >
-      <Text color={isSelected ? 'cyan' : undefined}>
-        {isSelected ? '> ' : '  '}Document {documentIndex + 1}
-      </Text>
       {fieldNames.map(fieldName => (
         <DocumentField
           fieldName={fieldName}

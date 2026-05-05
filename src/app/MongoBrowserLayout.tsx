@@ -19,6 +19,7 @@ export type MongoBrowserLayoutProps = {
   readonly activeContainer: MongoBrowserContainer;
   readonly activeDocumentTab: CollectionDocumentTab | null;
   readonly documentTabs: readonly CollectionDocumentTab[];
+  readonly leftPaneWidth?: number;
   readonly operationError: string | null;
   readonly phase: AppPhase;
   readonly selectedSidebarIndex: number;
@@ -29,6 +30,7 @@ export function MongoBrowserLayout({
   activeContainer,
   activeDocumentTab,
   documentTabs,
+  leftPaneWidth = defaultLeftBrowserPaneWidth,
   operationError,
   phase,
   selectedSidebarIndex,
@@ -43,6 +45,7 @@ export function MongoBrowserLayout({
       <Box alignItems="flex-start" gap={1} height={browserHeight}>
         <MemoizedLeftBrowserPane
           activeContainer={activeContainer}
+          paneWidth={leftPaneWidth}
           phase={phase}
           selectedSidebarIndex={selectedSidebarIndex}
           sidebarItems={sidebarItems}
@@ -65,20 +68,24 @@ const MemoizedLeftBrowserPane = memo(LeftBrowserPane);
 
 function LeftBrowserPane({
   activeContainer,
+  paneWidth,
   phase,
   selectedSidebarIndex,
   sidebarItems,
 }: {
   readonly activeContainer: MongoBrowserContainer;
+  readonly paneWidth: number;
   readonly phase: AppPhase;
   readonly selectedSidebarIndex: number;
   readonly sidebarItems: readonly MongoBrowserSidebarItem[];
 }): React.JSX.Element {
+  const itemLabelWidth = getLeftSidebarItemLabelWidth(paneWidth);
+
   return (
     <BrowserPane
       isFocused={activeContainer === MongoBrowserContainer.LeftSidebar}
       title="Databases"
-      width={32}
+      width={paneWidth}
     >
       {sidebarItems.map((item, index) => (
         <MemoizedSidebarItem
@@ -86,6 +93,7 @@ function LeftBrowserPane({
             activeContainer === MongoBrowserContainer.LeftSidebar &&
             index === selectedSidebarIndex
           }
+          labelWidth={itemLabelWidth}
           item={item}
           key={item.key}
         />
@@ -169,16 +177,26 @@ const MemoizedSidebarItem = memo(SidebarItem);
 function SidebarItem({
   isFocused,
   item,
+  labelWidth,
 }: {
   readonly isFocused: boolean;
   readonly item: MongoBrowserSidebarItem;
+  readonly labelWidth: number;
 }): React.JSX.Element {
   const color =
     item.type === MongoBrowserSidebarItemType.Collection ? 'green' : undefined;
+  const label =
+    item.type === MongoBrowserSidebarItemType.Collection
+      ? getCollectionSidebarLabel(item.collectionName, labelWidth)
+      : item.label;
+  const wrap =
+    item.type === MongoBrowserSidebarItemType.Collection
+      ? 'truncate-end'
+      : 'wrap';
 
   return (
-    <Text color={isFocused ? 'cyan' : color}>
-      {isFocused ? '>' : ' '} {item.label}
+    <Text color={isFocused ? 'cyan' : color} wrap={wrap}>
+      {isFocused ? '>' : ' '} {label}
     </Text>
   );
 }
@@ -293,3 +311,51 @@ export function getBrowserContentHeight(
 }
 
 const browserVerticalChromeRows = 4;
+
+export function getCollectionSidebarLabel(
+  collectionName: string,
+  labelWidth: number,
+): string {
+  const availableCollectionNameWidth = Math.max(
+    0,
+    labelWidth - collectionLabelPrefix.length,
+  );
+
+  return `${collectionLabelPrefix}${ellipsizeSidebarLabel(
+    collectionName,
+    availableCollectionNameWidth,
+  )}`;
+}
+
+export function ellipsizeSidebarLabel(
+  label: string,
+  maxWidth: number,
+): string {
+  if (maxWidth <= 0) {
+    return '';
+  }
+
+  if (label.length <= maxWidth) {
+    return label;
+  }
+
+  if (maxWidth <= ellipsisSuffix.length) {
+    return ellipsisSuffix.slice(0, maxWidth);
+  }
+
+  return `${label.slice(0, maxWidth - ellipsisSuffix.length)}${ellipsisSuffix}`;
+}
+
+export function getLeftSidebarItemLabelWidth(paneWidth: number): number {
+  return Math.max(
+    0,
+    paneWidth - browserPaneHorizontalChromeColumns - sidebarFocusMarkerColumns,
+  );
+}
+
+export const defaultLeftBrowserPaneWidth = 32;
+
+const browserPaneHorizontalChromeColumns = 4;
+const collectionLabelPrefix = '  - ';
+const ellipsisSuffix = '...';
+const sidebarFocusMarkerColumns = 2;

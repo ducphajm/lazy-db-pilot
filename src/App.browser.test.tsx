@@ -2,9 +2,17 @@ import React from 'react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {cleanup, render} from 'ink-testing-library';
 import {App} from './App.js';
-import {getBrowserContentHeight} from './app/MongoBrowserLayout.js';
+import {
+  MongoBrowserLayout,
+  getBrowserContentHeight,
+} from './app/MongoBrowserLayout.js';
+import {
+  MongoBrowserContainer,
+  MongoBrowserSidebarItemType,
+} from './app/mongodbBrowser.js';
 import {ConnectionEnvironment, DatabaseType} from './connections/types.js';
 import type {DatabaseConnection} from './connections/types.js';
+import {AppPhase} from './app/phases.js';
 
 afterEach(() => {
   cleanup();
@@ -87,6 +95,95 @@ describe('MongoDB split browser', () => {
     instance.stdin.write('\b');
     await expectFrame(instance, 'Saved connections');
   });
+
+  it('renders long collection names as single-line ellipsized sidebar items', async () => {
+    const longCollectionName = 'verylongnameevergrowingcollection';
+    const instance = render(
+      <App
+        loadConnectionsList={async () => [
+          mongoConnection('Local Mongo', 'mongodb://example'),
+        ]}
+        loadDatabases={async () => ['admin']}
+        loadCollections={async () => [longCollectionName]}
+      />,
+    );
+
+    await expectFrame(instance, 'Saved connections');
+    instance.stdin.write('\r');
+    await expectFrame(instance, '> [+] admin');
+    instance.stdin.write('\r');
+    await expectFrame(instance, '  - verylongnameevergro...');
+
+    const frame = instance.lastFrame() ?? '';
+    expect(frame).not.toContain(longCollectionName);
+    expect(linesContaining(frame, 'verylongnameevergro...')).toHaveLength(1);
+  });
+
+  it('opens an ellipsized collection using its full collection name', async () => {
+    const longCollectionName = 'verylongnameevergrowingcollection';
+    const loadCollectionDocuments = vi.fn(async () => [
+      {_id: 'long-collection-document'},
+    ]);
+    const instance = render(
+      <App
+        loadConnectionsList={async () => [
+          mongoConnection('Local Mongo', 'mongodb://example'),
+        ]}
+        loadDatabases={async () => ['admin']}
+        loadCollections={async () => [longCollectionName]}
+        loadCollectionDocuments={loadCollectionDocuments}
+      />,
+    );
+
+    await expectFrame(instance, 'Saved connections');
+    instance.stdin.write('\r');
+    await expectFrame(instance, '> [+] admin');
+    instance.stdin.write('\r');
+    await expectFrame(instance, '  - verylongnameevergro...');
+    instance.stdin.write('j');
+    await expectFrame(instance, '>   - verylongnameevergro...');
+    instance.stdin.write('\r');
+    await expectFrame(instance, '_id: long-collection-document');
+
+    expect(loadCollectionDocuments).toHaveBeenCalledWith(
+      'mongodb://example',
+      'admin',
+      longCollectionName,
+    );
+  });
+
+  it('renders the full collection name in a wider sidebar', async () => {
+    const collectionName = 'verylongnameevergrowingcollection';
+    const instance = render(
+      <MongoBrowserLayout
+        activeContainer={MongoBrowserContainer.LeftSidebar}
+        activeDocumentTab={null}
+        documentTabs={[]}
+        leftPaneWidth={64}
+        operationError={null}
+        phase={AppPhase.CollectionsLoaded}
+        selectedSidebarIndex={1}
+        sidebarItems={[
+          {
+            databaseName: 'admin',
+            key: 'database:admin',
+            label: '[-] admin',
+            type: MongoBrowserSidebarItemType.Database,
+          },
+          {
+            collectionName,
+            databaseName: 'admin',
+            key: `collection:admin:${collectionName}`,
+            label: `  - ${collectionName}`,
+            type: MongoBrowserSidebarItemType.Collection,
+          },
+        ]}
+      />,
+    );
+
+    await expectFrame(instance, `>   - ${collectionName}`);
+    expect(instance.lastFrame()).not.toContain('...');
+  });
 });
 
 async function expectFrame(
@@ -105,4 +202,8 @@ function mongoConnection(name: string, url: string): DatabaseConnection {
     environment: ConnectionEnvironment.Local,
     details: {url},
   };
+}
+
+function linesContaining(value: string, searchValue: string): string[] {
+  return value.split('\n').filter(line => line.includes(searchValue));
 }

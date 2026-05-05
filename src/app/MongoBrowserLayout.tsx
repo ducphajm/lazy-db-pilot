@@ -46,6 +46,7 @@ export function MongoBrowserLayout({
         <MemoizedLeftBrowserPane
           activeContainer={activeContainer}
           paneWidth={leftPaneWidth}
+          paneHeight={browserHeight}
           phase={phase}
           selectedSidebarIndex={selectedSidebarIndex}
           sidebarItems={sidebarItems}
@@ -69,17 +70,33 @@ const MemoizedLeftBrowserPane = memo(LeftBrowserPane);
 function LeftBrowserPane({
   activeContainer,
   paneWidth,
+  paneHeight,
   phase,
   selectedSidebarIndex,
   sidebarItems,
 }: {
   readonly activeContainer: MongoBrowserContainer;
   readonly paneWidth: number;
+  readonly paneHeight: number | undefined;
   readonly phase: AppPhase;
   readonly selectedSidebarIndex: number;
   readonly sidebarItems: readonly MongoBrowserSidebarItem[];
 }): React.JSX.Element {
   const itemLabelWidth = getLeftSidebarItemLabelWidth(paneWidth);
+  const visibleSidebarRowCount = getVisibleSidebarRowCount(paneHeight, phase);
+  const visibleSidebarItems = getVisibleSidebarItems({
+    items: sidebarItems,
+    selectedIndex: selectedSidebarIndex,
+    visibleRowCount: visibleSidebarRowCount,
+  });
+  const firstVisibleSidebarIndex =
+    visibleSidebarRowCount === undefined
+      ? 0
+      : getFirstVisibleSidebarIndex({
+          itemCount: sidebarItems.length,
+          selectedIndex: selectedSidebarIndex,
+          visibleRowCount: visibleSidebarRowCount,
+        });
 
   return (
     <BrowserPane
@@ -87,17 +104,23 @@ function LeftBrowserPane({
       title="Databases"
       width={paneWidth}
     >
-      {sidebarItems.map((item, index) => (
-        <MemoizedSidebarItem
-          isFocused={
-            activeContainer === MongoBrowserContainer.LeftSidebar &&
-            index === selectedSidebarIndex
-          }
-          labelWidth={itemLabelWidth}
-          item={item}
-          key={item.key}
-        />
-      ))}
+      <Box
+        flexDirection="column"
+        height={visibleSidebarRowCount}
+        overflowY="hidden"
+      >
+        {visibleSidebarItems.map((item, index) => (
+          <MemoizedSidebarItem
+            isFocused={
+              activeContainer === MongoBrowserContainer.LeftSidebar &&
+              firstVisibleSidebarIndex + index === selectedSidebarIndex
+            }
+            labelWidth={itemLabelWidth}
+            item={item}
+            key={item.key}
+          />
+        ))}
+      </Box>
       <SidebarFeedback phase={phase} />
     </BrowserPane>
   );
@@ -353,9 +376,91 @@ export function getLeftSidebarItemLabelWidth(paneWidth: number): number {
   );
 }
 
+export function getVisibleSidebarRowCount(
+  paneHeight: number | undefined,
+  phase: AppPhase,
+): number | undefined {
+  if (paneHeight === undefined) {
+    return undefined;
+  }
+
+  return Math.max(
+    0,
+    paneHeight -
+      browserPaneVerticalChromeRows -
+      browserPaneTitleRows -
+      getSidebarFeedbackRowCount(phase),
+  );
+}
+
+export function getVisibleSidebarItems({
+  items,
+  selectedIndex,
+  visibleRowCount,
+}: {
+  readonly items: readonly MongoBrowserSidebarItem[];
+  readonly selectedIndex: number;
+  readonly visibleRowCount: number | undefined;
+}): readonly MongoBrowserSidebarItem[] {
+  if (visibleRowCount === undefined) {
+    return items;
+  }
+
+  if (visibleRowCount <= 0) {
+    return [];
+  }
+
+  const firstVisibleIndex = getFirstVisibleSidebarIndex({
+    itemCount: items.length,
+    selectedIndex,
+    visibleRowCount,
+  });
+
+  return items.slice(firstVisibleIndex, firstVisibleIndex + visibleRowCount);
+}
+
+export function getFirstVisibleSidebarIndex({
+  itemCount,
+  selectedIndex,
+  visibleRowCount,
+}: {
+  readonly itemCount: number;
+  readonly selectedIndex: number;
+  readonly visibleRowCount: number;
+}): number {
+  if (itemCount === 0 || visibleRowCount <= 0) {
+    return 0;
+  }
+
+  const clampedSelectedIndex = Math.min(
+    Math.max(0, selectedIndex),
+    itemCount - 1,
+  );
+  const lastFirstVisibleIndex = Math.max(0, itemCount - visibleRowCount);
+
+  return Math.min(
+    Math.max(0, clampedSelectedIndex - visibleRowCount + 1),
+    lastFirstVisibleIndex,
+  );
+}
+
 export const defaultLeftBrowserPaneWidth = 32;
 
 const browserPaneHorizontalChromeColumns = 4;
+const browserPaneTitleRows = 1;
+const browserPaneVerticalChromeRows = 2;
 const collectionLabelPrefix = '  - ';
 const ellipsisSuffix = '...';
 const sidebarFocusMarkerColumns = 2;
+
+function getSidebarFeedbackRowCount(phase: AppPhase): number {
+  if (
+    phase === AppPhase.LoadingCollections ||
+    phase === AppPhase.CollectionsEmpty ||
+    phase === AppPhase.CollectionError
+  ) {
+    return 1;
+  }
+
+  return 0;
+}

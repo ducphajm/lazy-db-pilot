@@ -90,13 +90,19 @@ The system SHALL display MongoDB browsing in a two-container layout after a Mong
 #### Scenario: Selected database expands collections
 - **WHEN** the user selects a database from the left sidebar
 - **AND** the system successfully loads one or more collections from that database
-- **THEN** the selected database is displayed as an expanded folder-like item
+- **THEN** that database is displayed as an expanded folder-like item
 - **AND** its collections are displayed as child items under that database
+
+#### Scenario: Multiple databases remain expanded
+- **WHEN** the user has expanded one database in the left sidebar
+- **AND** the user selects and successfully loads collections for another database
+- **THEN** both databases are displayed as expanded folder-like items
+- **AND** each expanded database displays its own collections as child items under that database
 
 #### Scenario: Empty collection list remains in hierarchy
 - **WHEN** the user selects a database from the left sidebar
 - **AND** the system successfully loads no collections from that database
-- **THEN** the selected database is displayed in the left sidebar
+- **THEN** that database is displayed in the left sidebar
 - **AND** the terminal UI displays an empty collection state without leaving the split browser layout
 
 ### Requirement: Left Sidebar Folder Navigation
@@ -111,9 +117,10 @@ The system SHALL allow the user to open and close database folders in the left s
 
 #### Scenario: User closes an expanded database folder
 - **WHEN** the user is in the split MongoDB browser layout with the left sidebar focused
-- **AND** the active database folder is expanded
+- **AND** an expanded database folder is focused
 - **AND** the user presses `h`
-- **THEN** the system closes the active database folder
+- **THEN** the system closes only the focused database folder
+- **AND** other expanded database folders remain expanded
 - **AND** focus remains in the left sidebar
 
 #### Scenario: User returns to saved connections from browser
@@ -146,13 +153,18 @@ The system SHALL allow the user to move focus between MongoDB browser containers
 - **THEN** the terminal UI visually indicates which container currently has focus
 
 ### Requirement: MongoDB Database Selection
-The system SHALL allow the user to select one listed MongoDB database in the left sidebar before loading collections, and SHALL keep opened document tabs available until the user closes them.
+The system SHALL allow the user to select MongoDB databases in the left sidebar before loading collections, SHALL keep opened document tabs available until the user closes them, and SHALL allow multiple loaded database folders to remain expanded.
 
 #### Scenario: User selects database
 - **WHEN** the user selects a database from the left sidebar database list
 - **THEN** the system attempts to load collections from the selected database
-- **AND** the selected database becomes the active folder-like database item in the left sidebar
-- **AND** any open right-side collection document tabs remain available
+- **AND** the selected database becomes an expanded folder-like database item in the left sidebar
+- **AND** previously expanded database folders remain expanded
+
+#### Scenario: User selects already expanded database
+- **WHEN** the user selects a database that is already expanded in the left sidebar
+- **THEN** the system keeps that database expanded
+- **AND** the system keeps other expanded database folders expanded
 
 ### Requirement: Collection Document Tabs
 The system SHALL display opened collection document views as tabs in the right data container and SHALL keep each tab open until the user closes it.
@@ -221,15 +233,20 @@ The system SHALL allow the user to navigate between open collection document tab
 - **THEN** the system activates the last open collection document tab
 
 ### Requirement: Collection Listing
-The system SHALL display collection names from the selected MongoDB database as single-line child items under the selected database in the left sidebar, and SHALL responsively ellipsize collection labels that are too long for the rendered sidebar label width.
+The system SHALL display collection names from each expanded MongoDB database as single-line child items under that database in the left sidebar, and SHALL responsively ellipsize collection labels that are too long for the rendered sidebar label width.
 
 #### Scenario: Database has collections
-- **WHEN** the system successfully loads one or more collections from the selected MongoDB database
-- **THEN** the terminal UI displays each collection name as a child item under the selected database in the left sidebar
+- **WHEN** the system successfully loads one or more collections from a MongoDB database
+- **THEN** the terminal UI displays each collection name as a child item under that database in the left sidebar
+
+#### Scenario: Multiple expanded databases have collections
+- **WHEN** the system has successfully loaded collections for multiple expanded MongoDB databases
+- **THEN** the terminal UI displays each loaded collection under its owning database
+- **AND** the system does not display one database's collections under another database
 
 #### Scenario: Database has no collections
-- **WHEN** the system successfully loads no collections from the selected MongoDB database
-- **THEN** the terminal UI displays an empty-state message while keeping the selected database visible in the left sidebar
+- **WHEN** the system successfully loads no collections from a MongoDB database
+- **THEN** the terminal UI displays an empty-state message while keeping that database visible in the left sidebar
 
 #### Scenario: Collection name exceeds sidebar width
 - **WHEN** the system displays a collection child item whose full collection name exceeds the rendered left sidebar label width
@@ -241,6 +258,19 @@ The system SHALL display collection names from the selected MongoDB database as 
 #### Scenario: Sidebar width can show full collection name
 - **WHEN** the system displays a collection child item whose full collection name fits within the rendered left sidebar label width
 - **THEN** the terminal UI displays the full collection name without `...`
+
+### Requirement: Scrollable Left Sidebar
+The system SHALL keep the MongoDB browser left sidebar navigable when database and collection hierarchy content exceeds the visible sidebar height.
+
+#### Scenario: Sidebar content exceeds visible height
+- **WHEN** the left sidebar contains more database and collection items than fit in the visible sidebar height
+- **THEN** the terminal UI displays a visible subset of sidebar items within the left sidebar pane
+- **AND** the selected sidebar item remains visible as the user navigates with `j` or `k`
+- **AND** the left sidebar pane does not overflow into the right data container or footer controls
+
+#### Scenario: Sidebar content fits visible height
+- **WHEN** the left sidebar contains database and collection items that fit in the visible sidebar height
+- **THEN** the terminal UI displays all sidebar items without clipping them
 
 ### Requirement: Collection Data Loading
 The system SHALL load documents from the selected MongoDB database when the user presses `Enter` or `l` on a focused collection item in the left sidebar, SHALL apply a default limit of 25 documents, and SHALL display the result in an active collection tab.

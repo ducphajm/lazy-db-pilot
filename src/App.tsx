@@ -59,11 +59,15 @@ export function App({
   const [operationError, setOperationError] = useState<string | null>(null);
   const [databases, setDatabases] = useState<string[]>([]);
   const [selectedDatabase, setSelectedDatabase] = useState<string | null>(null);
-  const [collections, setCollections] = useState<string[]>([]);
+  const [collectionsByDatabaseName, setCollectionsByDatabaseName] = useState<
+    ReadonlyMap<string, readonly string[]>
+  >(new Map());
   const [, setSelectedCollection] = useState<string | null>(null);
   const [activeBrowserContainer, setActiveBrowserContainer] =
     useState<MongoBrowserContainer>(MongoBrowserContainer.LeftSidebar);
-  const [isDatabaseFolderOpen, setIsDatabaseFolderOpen] = useState(false);
+  const [expandedDatabaseNames, setExpandedDatabaseNames] = useState<
+    ReadonlySet<string>
+  >(new Set());
   const [selectedSidebarIndex, setSelectedSidebarIndex] = useState(0);
   const exitApp = onExit ?? exit;
   const {
@@ -105,10 +109,10 @@ export function App({
     clearPendingDeletion();
     setSelectedDatabase(null);
     setSelectedCollection(null);
-    setCollections([]);
+    setCollectionsByDatabaseName(new Map());
     clearDocumentTabs();
     setActiveBrowserContainer(MongoBrowserContainer.LeftSidebar);
-    setIsDatabaseFolderOpen(false);
+    setExpandedDatabaseNames(new Set());
     setSelectedSidebarIndex(0);
     setDatabases([]);
     setPhase(
@@ -168,12 +172,12 @@ export function App({
     setSelectedConnection(connection);
     setOperationError(null);
     setDatabases([]);
-    setCollections([]);
+    setCollectionsByDatabaseName(new Map());
     setSelectedCollection(null);
     clearDocumentTabs();
     setSelectedDatabase(null);
     setActiveBrowserContainer(MongoBrowserContainer.LeftSidebar);
-    setIsDatabaseFolderOpen(false);
+    setExpandedDatabaseNames(new Set());
     setSelectedSidebarIndex(0);
 
     if (connection.type !== DatabaseType.MongoDB) {
@@ -187,27 +191,46 @@ export function App({
   const selectDatabase = useCallback((databaseName: string) => {
     setSelectedDatabase(databaseName);
     setOperationError(null);
-    setCollections([]);
+    setCollectionsByDatabaseName(previousCollections => {
+      const nextCollections = new Map(previousCollections);
+      nextCollections.delete(databaseName);
+      return nextCollections;
+    });
     setSelectedCollection(null);
     setActiveBrowserContainer(MongoBrowserContainer.LeftSidebar);
-    setIsDatabaseFolderOpen(true);
+    setExpandedDatabaseNames(previousDatabaseNames => {
+      const nextDatabaseNames = new Set(previousDatabaseNames);
+      nextDatabaseNames.add(databaseName);
+      return nextDatabaseNames;
+    });
     setPhase(AppPhase.LoadingCollections);
   }, []);
 
-  const selectCollection = useCallback((collectionName: string) => {
-    if (selectedConnection === null || selectedDatabase === null) {
+  const selectCollection = useCallback(({
+    collectionName,
+    databaseName,
+  }: {
+    readonly collectionName: string;
+    readonly databaseName: string;
+  }) => {
+    if (selectedConnection === null) {
       return;
     }
 
+    setSelectedDatabase(databaseName);
     setSelectedCollection(collectionName);
     setOperationError(null);
     setActiveBrowserContainer(MongoBrowserContainer.RightData);
-    openDocumentTab({collectionName, databaseName: selectedDatabase});
-  }, [openDocumentTab, selectedConnection, selectedDatabase]);
+    openDocumentTab({collectionName, databaseName});
+  }, [openDocumentTab, selectedConnection]);
 
-  const closeDatabaseFolder = useCallback(() => {
+  const closeDatabaseFolder = useCallback((databaseName: string) => {
     setOperationError(null);
-    setIsDatabaseFolderOpen(false);
+    setExpandedDatabaseNames(previousDatabaseNames => {
+      const nextDatabaseNames = new Set(previousDatabaseNames);
+      nextDatabaseNames.delete(databaseName);
+      return nextDatabaseNames;
+    });
     setSelectedCollection(null);
     setPhase(AppPhase.DatabasesLoaded);
   }, []);
@@ -220,12 +243,11 @@ export function App({
   const browserSidebarItems = useMemo(
     () =>
       getMongoBrowserSidebarItems({
-        collections,
+        collectionsByDatabaseName,
         databases,
-        isDatabaseFolderOpen,
-        selectedDatabase,
+        expandedDatabaseNames,
       }),
-    [collections, databases, isDatabaseFolderOpen, selectedDatabase],
+    [collectionsByDatabaseName, databases, expandedDatabaseNames],
   );
 
   useEffect(() => {
@@ -347,6 +369,8 @@ export function App({
         }
 
         setDatabases(nextDatabases);
+        setCollectionsByDatabaseName(new Map());
+        setExpandedDatabaseNames(new Set());
         setPhase(
           nextDatabases.length > 0
             ? AppPhase.DatabasesLoaded
@@ -384,7 +408,11 @@ export function App({
           return;
         }
 
-        setCollections(nextCollections);
+        setCollectionsByDatabaseName(previousCollections => {
+          const nextCollectionsByDatabaseName = new Map(previousCollections);
+          nextCollectionsByDatabaseName.set(selectedDatabase, nextCollections);
+          return nextCollectionsByDatabaseName;
+        });
         setSelectedCollection(null);
         setPhase(
           nextCollections.length > 0

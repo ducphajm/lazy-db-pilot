@@ -49,21 +49,18 @@ export function canFocusMongoBrowserRightData(phase: AppPhase): boolean {
 }
 
 export function getMongoBrowserSidebarItems({
-  collections,
+  collectionsByDatabaseName,
   databases,
-  isDatabaseFolderOpen,
-  selectedDatabase,
+  expandedDatabaseNames,
 }: {
-  readonly collections: readonly string[];
+  readonly collectionsByDatabaseName: ReadonlyMap<string, readonly string[]>;
   readonly databases: readonly string[];
-  readonly isDatabaseFolderOpen: boolean;
-  readonly selectedDatabase: string | null;
+  readonly expandedDatabaseNames: ReadonlySet<string>;
 }): MongoBrowserSidebarItem[] {
   const items: MongoBrowserSidebarItem[] = [];
 
   for (const databaseName of databases) {
-    const isExpanded =
-      isDatabaseFolderOpen && selectedDatabase === databaseName;
+    const isExpanded = expandedDatabaseNames.has(databaseName);
 
     items.push({
       databaseName,
@@ -75,6 +72,8 @@ export function getMongoBrowserSidebarItems({
     if (!isExpanded) {
       continue;
     }
+
+    const collections = collectionsByDatabaseName.get(databaseName) ?? [];
 
     for (const collectionName of collections) {
       items.push({

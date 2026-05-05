@@ -16,7 +16,7 @@ export type UseAppInputParams = {
   readonly browserSidebarItems: readonly MongoBrowserSidebarItem[];
   readonly canMoveSelectedDocument: boolean;
   readonly closeActiveDocumentTab: () => void;
-  readonly closeDatabaseFolder: () => void;
+  readonly closeDatabaseFolder: (databaseName: string) => void;
   readonly exitApp: () => void;
   readonly focusLeftSidebar: () => void;
   readonly hasOpenDocumentTabs: boolean;
@@ -26,7 +26,10 @@ export type UseAppInputParams = {
   readonly moveSelectedDocument: (direction: -1 | 1) => void;
   readonly phase: AppPhase;
   readonly selectedSidebarIndex: number;
-  readonly selectCollection: (collectionName: string) => void;
+  readonly selectCollection: (collection: {
+    readonly collectionName: string;
+    readonly databaseName: string;
+  }) => void;
   readonly selectDatabase: (databaseName: string) => void;
   readonly setActiveBrowserContainer: Dispatch<
     SetStateAction<MongoBrowserContainer>
@@ -154,7 +157,10 @@ export function useAppInput({
     }
 
     if (input === 'h') {
-      closeDatabaseFolder();
+      if (focusedSidebarItem?.type === MongoBrowserSidebarItemType.Database) {
+        closeDatabaseFolder(focusedSidebarItem.databaseName);
+      }
+
       return;
     }
 
@@ -170,7 +176,10 @@ export function useAppInput({
       focusedSidebarItem?.type === MongoBrowserSidebarItemType.Collection &&
       (input === 'l' || isReturn)
     ) {
-      selectCollection(focusedSidebarItem.collectionName);
+      selectCollection({
+        collectionName: focusedSidebarItem.collectionName,
+        databaseName: focusedSidebarItem.databaseName,
+      });
     }
   }
 }

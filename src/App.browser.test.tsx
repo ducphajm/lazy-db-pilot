@@ -5,10 +5,13 @@ import {App} from './App.js';
 import {
   MongoBrowserLayout,
   getBrowserContentHeight,
+  getVisibleSidebarItems,
+  getVisibleSidebarRowCount,
 } from './app/MongoBrowserLayout.js';
 import {
   MongoBrowserContainer,
   MongoBrowserSidebarItemType,
+  type MongoBrowserSidebarItem,
 } from './app/mongodbBrowser.js';
 import {ConnectionEnvironment, DatabaseType} from './connections/types.js';
 import type {DatabaseConnection} from './connections/types.js';
@@ -94,6 +97,81 @@ describe('MongoDB split browser', () => {
 
     instance.stdin.write('\b');
     await expectFrame(instance, 'Saved connections');
+  });
+
+  it('expands multiple databases with their own collections', async () => {
+    const loadCollections = vi.fn(async (_url: string, databaseName: string) =>
+      databaseName === 'admin' ? ['users'] : ['events'],
+    );
+    const instance = render(
+      <App
+        loadConnectionsList={async () => [
+          mongoConnection('Local Mongo', 'mongodb://example'),
+        ]}
+        loadDatabases={async () => ['admin', 'analytics']}
+        loadCollections={loadCollections}
+      />,
+    );
+
+    await expectFrame(instance, 'Saved connections');
+    instance.stdin.write('\r');
+    await expectFrame(instance, '> [+] admin');
+    instance.stdin.write('\r');
+    await expectFrame(instance, '- users');
+    instance.stdin.write('j');
+    instance.stdin.write('j');
+    await expectFrame(instance, '> [+] analytics');
+    instance.stdin.write('l');
+    await expectFrame(instance, '- events');
+
+    const frame = instance.lastFrame() ?? '';
+    expect(frame).toContain('[-] admin');
+    expect(frame).toContain('- users');
+    expect(frame).toContain('[-] analytics');
+    expect(frame).toContain('- events');
+    expect(loadCollections).toHaveBeenCalledWith(
+      'mongodb://example',
+      'admin',
+    );
+    expect(loadCollections).toHaveBeenCalledWith(
+      'mongodb://example',
+      'analytics',
+    );
+  });
+
+  it('closes one expanded database without closing another', async () => {
+    const instance = render(
+      <App
+        loadConnectionsList={async () => [
+          mongoConnection('Local Mongo', 'mongodb://example'),
+        ]}
+        loadDatabases={async () => ['admin', 'analytics']}
+        loadCollections={async (_url, databaseName) =>
+          databaseName === 'admin' ? ['users'] : ['events']
+        }
+      />,
+    );
+
+    await expectFrame(instance, 'Saved connections');
+    instance.stdin.write('\r');
+    await expectFrame(instance, '> [+] admin');
+    instance.stdin.write('\r');
+    await expectFrame(instance, '- users');
+    instance.stdin.write('j');
+    instance.stdin.write('j');
+    await expectFrame(instance, '> [+] analytics');
+    instance.stdin.write('l');
+    await expectFrame(instance, '- events');
+    instance.stdin.write('k');
+    instance.stdin.write('k');
+    await expectFrame(instance, '> [-] admin');
+    instance.stdin.write('h');
+    await expectFrame(instance, '> [+] admin');
+
+    const frame = instance.lastFrame() ?? '';
+    expect(frame).not.toContain('- users');
+    expect(frame).toContain('[-] analytics');
+    expect(frame).toContain('- events');
   });
 
   it('renders long collection names as single-line ellipsized sidebar items', async () => {
@@ -183,6 +261,38 @@ describe('MongoDB split browser', () => {
 
     await expectFrame(instance, `>   - ${collectionName}`);
     expect(instance.lastFrame()).not.toContain('...');
+  });
+
+  it('keeps the selected sidebar item inside the visible row slice', () => {
+    const sidebarItems: MongoBrowserSidebarItem[] = Array.from(
+      {length: 12},
+      (_value, index) => ({
+        databaseName: `db${index}`,
+        key: `database:db${index}`,
+        label: `[+] db${index}`,
+        type: MongoBrowserSidebarItemType.Database,
+      }),
+    );
+
+    const visibleItems = getVisibleSidebarItems({
+      items: sidebarItems,
+      selectedIndex: 10,
+      visibleRowCount: 4,
+    });
+
+    expect(visibleItems.map(item => item.key)).toEqual([
+      'database:db7',
+      'database:db8',
+      'database:db9',
+      'database:db10',
+    ]);
+  });
+
+  it('reserves sidebar row capacity for pane chrome and feedback', () => {
+    expect(getVisibleSidebarRowCount(10, AppPhase.CollectionsLoaded)).toBe(7);
+    expect(getVisibleSidebarRowCount(10, AppPhase.LoadingCollections)).toBe(6);
+    expect(getVisibleSidebarRowCount(undefined, AppPhase.CollectionsLoaded))
+      .toBeUndefined();
   });
 });
 

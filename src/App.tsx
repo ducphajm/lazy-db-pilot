@@ -89,7 +89,7 @@ export function App({
     closeActiveDocumentTab,
     documentTabs,
     moveActiveDocumentTab,
-    moveSelectedDocument,
+    moveDocumentCursor,
     openDocumentTab,
   } = useDocumentTabs({
     loadCollectionDocuments,
@@ -268,7 +268,7 @@ export function App({
   useAppInput({
     activeBrowserContainer,
     browserSidebarItems,
-    canMoveSelectedDocument:
+    canMoveDocumentCursor:
       activeDocumentTab?.status === CollectionDocumentTabStatus.Loaded,
     closeActiveDocumentTab,
     closeDatabaseFolder,
@@ -276,7 +276,7 @@ export function App({
     focusLeftSidebar,
     hasOpenDocumentTabs: documentTabs.length > 0,
     moveActiveDocumentTab,
-    moveSelectedDocument,
+    moveDocumentCursor,
     phase,
     selectedSidebarIndex,
     selectCollection,

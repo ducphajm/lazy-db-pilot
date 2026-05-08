@@ -2,90 +2,196 @@ import {Box, Text} from 'ink';
 import type {MongoCollectionDocument} from '../mongodb/service.js';
 
 export function DocumentCardList({
+  cursorLineIndex = 0,
   documents,
   isFocused = true,
+  scrollOffset = 0,
   selectedIndex,
+  visibleRowCount,
 }: {
+  readonly cursorLineIndex?: number;
   readonly documents: readonly MongoCollectionDocument[];
   readonly isFocused?: boolean;
+  readonly scrollOffset?: number;
   readonly selectedIndex: number;
+  readonly visibleRowCount?: number;
 }): React.JSX.Element {
-  return (
-    <Box flexDirection="column" gap={1}>
-      {documents.map((document, index) => (
-        <DocumentCard
-          document={document}
-          isSelected={isFocused && index === selectedIndex}
-          key={getDocumentKey(document, index)}
-        />
-      ))}
-    </Box>
-  );
-}
-
-function DocumentCard({
-  document,
-  isSelected,
-}: {
-  readonly document: MongoCollectionDocument;
-  readonly isSelected: boolean;
-}): React.JSX.Element {
-  const fieldNames = getDocumentFieldNames(document);
+  const rows = getDocumentCardRows(documents);
+  const visibleRows =
+    visibleRowCount === undefined
+      ? rows
+      : rows.slice(scrollOffset, scrollOffset + visibleRowCount);
 
   return (
     <Box
-      borderColor={isSelected ? 'cyan' : 'gray'}
-      borderStyle="single"
-      flexShrink={0}
       flexDirection="column"
-      paddingX={1}
+      flexShrink={0}
+      height={visibleRowCount}
+      overflowY="hidden"
     >
-      {fieldNames.map(fieldName => (
-        <DocumentField
-          fieldName={fieldName}
-          key={fieldName}
-          value={document[fieldName]}
-        />
+      {visibleRows.map(row => (
+        <Text
+          color={
+            isFocused && row.documentIndex === selectedIndex ? 'cyan' : undefined
+          }
+          dimColor={row.kind === DocumentCardRowKind.Gap}
+          key={row.key}
+        >
+          {row.cursorLineIndex === cursorLineIndex && isFocused ? '>' : ' '}
+          {row.text}
+        </Text>
       ))}
     </Box>
   );
 }
 
-function DocumentField({
+export enum DocumentCardRowKind {
+  Border = 'border',
+  Content = 'content',
+  Gap = 'gap',
+}
+
+export type DocumentCardRow = {
+  readonly cursorLineIndex: number | null;
+  readonly documentIndex: number;
+  readonly key: string;
+  readonly kind: DocumentCardRowKind;
+  readonly text: string;
+};
+
+export type DocumentCardMetrics = {
+  readonly cursorLineCount: number;
+  readonly rows: readonly DocumentCardRow[];
+};
+
+export function getDocumentCardMetrics(
+  documents: readonly MongoCollectionDocument[],
+): DocumentCardMetrics {
+  const rows = getDocumentCardRows(documents);
+
+  return {
+    cursorLineCount: rows.filter(row => row.cursorLineIndex !== null).length,
+    rows,
+  };
+}
+
+export function getDocumentCardRows(
+  documents: readonly MongoCollectionDocument[],
+): readonly DocumentCardRow[] {
+  let cursorLineIndex = 0;
+
+  return documents.flatMap((document, documentIndex) => {
+    const rows: DocumentCardRow[] = [
+      createDocumentCardRow({
+        cursorLineIndex: null,
+        documentIndex,
+        kind: DocumentCardRowKind.Border,
+        keyPart: 'top',
+        text: '+-',
+      }),
+    ];
+
+    for (const fieldName of getDocumentFieldNames(document)) {
+      const fieldRows = getDocumentFieldRows({
+        cursorLineIndex,
+        documentIndex,
+        fieldName,
+        value: document[fieldName],
+      });
+
+      rows.push(...fieldRows);
+      cursorLineIndex += fieldRows.length;
+    }
+
+    rows.push(
+      createDocumentCardRow({
+        cursorLineIndex: null,
+        documentIndex,
+        kind: DocumentCardRowKind.Border,
+        keyPart: 'bottom',
+        text: '+-',
+      }),
+    );
+
+    if (documentIndex < documents.length - 1) {
+      rows.push(
+        createDocumentCardRow({
+          cursorLineIndex: null,
+          documentIndex,
+          kind: DocumentCardRowKind.Gap,
+          keyPart: 'gap',
+          text: '',
+        }),
+      );
+    }
+
+    return rows;
+  });
+}
+
+function getDocumentFieldRows({
+  cursorLineIndex,
+  documentIndex,
   fieldName,
   value,
 }: {
+  readonly cursorLineIndex: number;
+  readonly documentIndex: number;
   readonly fieldName: string;
   readonly value: unknown;
-}): React.JSX.Element {
+}): readonly DocumentCardRow[] {
   const preview = getDocumentValuePreview(formatDocumentValue(value));
   const lines = preview.value.split('\n');
 
   if (lines.length === 1) {
-    return (
-      <Text>
-        <Text dimColor>{fieldName}: </Text>
-        {lines[0]}
-        {preview.hiddenLineCount > 0 ? (
-          <Text dimColor> ... {preview.hiddenLineCount} more lines hidden</Text>
-        ) : null}
-      </Text>
+    const hiddenText =
+      preview.hiddenLineCount > 0
+        ? ` ... ${preview.hiddenLineCount} more lines hidden`
+        : '';
+
+    return [
+      createDocumentCardRow({
+        cursorLineIndex,
+        documentIndex,
+        kind: DocumentCardRowKind.Content,
+        keyPart: `${fieldName}:0`,
+        text: `| ${fieldName}: ${lines[0]}${hiddenText}`,
+      }),
+    ];
+  }
+
+  const rows = [
+    createDocumentCardRow({
+      cursorLineIndex,
+      documentIndex,
+      kind: DocumentCardRowKind.Content,
+      keyPart: `${fieldName}:label`,
+      text: `| ${fieldName}:`,
+    }),
+    ...lines.map((line, index) =>
+      createDocumentCardRow({
+        cursorLineIndex: cursorLineIndex + index + 1,
+        documentIndex,
+        kind: DocumentCardRowKind.Content,
+        keyPart: `${fieldName}:${index}`,
+        text: `|   ${line}`,
+      }),
+    ),
+  ];
+
+  if (preview.hiddenLineCount > 0) {
+    rows.push(
+      createDocumentCardRow({
+        cursorLineIndex: cursorLineIndex + rows.length,
+        documentIndex,
+        kind: DocumentCardRowKind.Content,
+        keyPart: `${fieldName}:hidden`,
+        text: `| ... ${preview.hiddenLineCount} more lines hidden`,
+      }),
     );
   }
 
-  return (
-    <Box flexDirection="column">
-      <Text dimColor>{fieldName}:</Text>
-      <Box flexDirection="column" marginLeft={2}>
-        {lines.map((line, index) => (
-          <Text key={`${fieldName}:${index}`}>{line}</Text>
-        ))}
-        {preview.hiddenLineCount > 0 ? (
-          <Text dimColor>... {preview.hiddenLineCount} more lines hidden</Text>
-        ) : null}
-      </Box>
-    </Box>
-  );
+  return rows;
 }
 
 export function getDocumentFieldNames(
@@ -140,17 +246,26 @@ export function formatDocumentValue(value: unknown): string {
   return String(value);
 }
 
-function getDocumentKey(
-  document: MongoCollectionDocument,
-  index: number,
-): string {
-  const idValue = document._id;
-
-  if (idValue === undefined || idValue === null) {
-    return String(index);
-  }
-
-  return `${formatDocumentValue(idValue)}:${index}`;
+function createDocumentCardRow({
+  cursorLineIndex,
+  documentIndex,
+  keyPart,
+  kind,
+  text,
+}: {
+  readonly cursorLineIndex: number | null;
+  readonly documentIndex: number;
+  readonly keyPart: string;
+  readonly kind: DocumentCardRowKind;
+  readonly text: string;
+}): DocumentCardRow {
+  return {
+    cursorLineIndex,
+    documentIndex,
+    key: `${documentIndex}:${keyPart}`,
+    kind,
+    text,
+  };
 }
 
 function stringifyNestedValue(value: object): string {

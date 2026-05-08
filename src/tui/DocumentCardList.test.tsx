@@ -6,6 +6,7 @@ import {afterEach, describe, expect, it} from 'vitest';
 import {
   DocumentCardList,
   formatDocumentValue,
+  getDocumentCardMetrics,
   getDocumentFieldNames,
 } from './DocumentCardList.js';
 
@@ -125,15 +126,19 @@ describe('DocumentCardList', () => {
     expect(frame).not.toContain('more fields hidden');
   });
 
-  it('keeps document cards from shrinking to a single trailing field', () => {
+  it('renders a bounded visible row window without shrinking cards', () => {
     const documents = Array.from({length: 10}, (_, index) => ({
       _id: String(index),
       name: `name-${index}`,
       updatedAt: '2026-05-04T00:00:00.000Z',
     }));
     const instance = render(
-      <Box height={6} overflowY="hidden">
-        <DocumentCardList documents={documents} selectedIndex={0} />
+      <Box>
+        <DocumentCardList
+          documents={documents}
+          selectedIndex={0}
+          visibleRowCount={6}
+        />
       </Box>,
     );
 
@@ -141,5 +146,17 @@ describe('DocumentCardList', () => {
 
     expect(frame).toContain('_id: 0');
     expect(frame).toContain('name: name-0');
+    expect(frame).not.toContain('_id: 3');
+  });
+
+  it('measures rendered rows for document scroll calculations', () => {
+    const metrics = getDocumentCardMetrics([
+      {_id: '1', profile: {role: 'admin'}, name: 'Ada'},
+      {_id: '2', name: 'Grace'},
+    ]);
+
+    expect(metrics.cursorLineCount).toBe(8);
+    expect(metrics.rows.some(row => row.text.includes('profile:'))).toBe(true);
+    expect(metrics.rows.at(-1)?.text).toBe('+-');
   });
 });

@@ -16,10 +16,12 @@ export enum DocumentTabMoveDirection {
 export type CollectionDocumentTab = {
   readonly collectionName: string;
   readonly connectionName: string;
+  readonly cursorLineIndex: number;
   readonly databaseName: string;
   readonly documents: readonly MongoCollectionDocument[];
   readonly error: string | null;
   readonly id: string;
+  readonly scrollOffset: number;
   readonly selectedDocumentIndex: number;
   readonly status: CollectionDocumentTabStatus;
 };
@@ -48,6 +50,7 @@ export function createLoadingCollectionDocumentTab({
   return {
     collectionName,
     connectionName,
+    cursorLineIndex: 0,
     databaseName,
     documents: [],
     error: null,
@@ -56,6 +59,7 @@ export function createLoadingCollectionDocumentTab({
       connectionName,
       databaseName,
     }),
+    scrollOffset: 0,
     selectedDocumentIndex: 0,
     status: CollectionDocumentTabStatus.Loading,
   };

@@ -38,6 +38,7 @@ export function MongoBrowserLayout({
 }: MongoBrowserLayoutProps): React.JSX.Element {
   const {stdout} = useStdout();
   const browserHeight = getBrowserContentHeight(stdout.rows);
+  const visibleDocumentRowCount = getVisibleDocumentRowCount(browserHeight);
 
   return (
     <Screen>
@@ -56,6 +57,7 @@ export function MongoBrowserLayout({
           activeDocumentTab={activeDocumentTab}
           documentTabs={documentTabs}
           operationError={operationError}
+          visibleDocumentRowCount={visibleDocumentRowCount}
         />
       </Box>
       <Text dimColor>
@@ -133,11 +135,13 @@ function RightBrowserPane({
   activeDocumentTab,
   documentTabs,
   operationError,
+  visibleDocumentRowCount,
 }: {
   readonly activeContainer: MongoBrowserContainer;
   readonly activeDocumentTab: CollectionDocumentTab | null;
   readonly documentTabs: readonly CollectionDocumentTab[];
   readonly operationError: string | null;
+  readonly visibleDocumentRowCount: number | undefined;
 }): React.JSX.Element {
   return (
     <BrowserPane
@@ -150,11 +154,17 @@ function RightBrowserPane({
         activeDocumentTab={activeDocumentTab}
         documentTabs={documentTabs}
       />
-      <Box flexDirection="column" flexShrink={1} overflowY="hidden">
+      <Box
+        flexDirection="column"
+        flexShrink={1}
+        height={visibleDocumentRowCount}
+        overflowY="hidden"
+      >
         <RightDataContent
           activeDocumentTab={activeDocumentTab}
           isFocused={activeContainer === MongoBrowserContainer.RightData}
           operationError={operationError}
+          visibleDocumentRowCount={visibleDocumentRowCount}
         />
       </Box>
     </BrowserPane>
@@ -250,10 +260,12 @@ function RightDataContent({
   activeDocumentTab,
   isFocused,
   operationError,
+  visibleDocumentRowCount,
 }: {
   readonly activeDocumentTab: CollectionDocumentTab | null;
   readonly isFocused: boolean;
   readonly operationError: string | null;
+  readonly visibleDocumentRowCount: number | undefined;
 }): React.JSX.Element {
   if (activeDocumentTab === null) {
     return <Text dimColor>No open document tabs.</Text>;
@@ -286,9 +298,12 @@ function RightDataContent({
   if (activeDocumentTab.status === CollectionDocumentTabStatus.Loaded) {
     return (
       <DocumentCardList
+        cursorLineIndex={activeDocumentTab.cursorLineIndex}
         documents={activeDocumentTab.documents}
         isFocused={isFocused}
+        scrollOffset={activeDocumentTab.scrollOffset}
         selectedIndex={activeDocumentTab.selectedDocumentIndex}
+        visibleRowCount={visibleDocumentRowCount}
       />
     );
   }
@@ -393,6 +408,22 @@ export function getVisibleSidebarRowCount(
   );
 }
 
+export function getVisibleDocumentRowCount(
+  paneHeight: number | undefined,
+): number | undefined {
+  if (paneHeight === undefined) {
+    return undefined;
+  }
+
+  return Math.max(
+    0,
+    paneHeight -
+      browserPaneVerticalChromeRows -
+      browserPaneTitleRows -
+      documentTabStripRows,
+  );
+}
+
 export function getVisibleSidebarItems({
   items,
   selectedIndex,
@@ -450,6 +481,7 @@ const browserPaneHorizontalChromeColumns = 4;
 const browserPaneTitleRows = 1;
 const browserPaneVerticalChromeRows = 2;
 const collectionLabelPrefix = '  - ';
+const documentTabStripRows = 1;
 const ellipsisSuffix = '...';
 const sidebarFocusMarkerColumns = 2;
 

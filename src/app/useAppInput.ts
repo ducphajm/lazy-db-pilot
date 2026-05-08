@@ -1,6 +1,10 @@
-import {useInput} from 'ink';
+import {useInput, useStdout} from 'ink';
 import type {Dispatch, SetStateAction} from 'react';
 import {DocumentTabMoveDirection} from './documentTabs.js';
+import {
+  getBrowserContentHeight,
+  getVisibleDocumentRowCount,
+} from './MongoBrowserLayout.js';
 import {AppPhase} from './phases.js';
 import {
   canFocusMongoBrowserRightData,
@@ -14,7 +18,7 @@ import {
 export type UseAppInputParams = {
   readonly activeBrowserContainer: MongoBrowserContainer;
   readonly browserSidebarItems: readonly MongoBrowserSidebarItem[];
-  readonly canMoveSelectedDocument: boolean;
+  readonly canMoveDocumentCursor: boolean;
   readonly closeActiveDocumentTab: () => void;
   readonly closeDatabaseFolder: (databaseName: string) => void;
   readonly exitApp: () => void;
@@ -23,7 +27,10 @@ export type UseAppInputParams = {
   readonly moveActiveDocumentTab: (
     direction: DocumentTabMoveDirection,
   ) => void;
-  readonly moveSelectedDocument: (direction: -1 | 1) => void;
+  readonly moveDocumentCursor: (input: {
+    readonly delta: number;
+    readonly visibleRowCount: number | undefined;
+  }) => void;
   readonly phase: AppPhase;
   readonly selectedSidebarIndex: number;
   readonly selectCollection: (collection: {
@@ -41,14 +48,14 @@ export type UseAppInputParams = {
 export function useAppInput({
   activeBrowserContainer,
   browserSidebarItems,
-  canMoveSelectedDocument,
+  canMoveDocumentCursor,
   closeActiveDocumentTab,
   closeDatabaseFolder,
   exitApp,
   focusLeftSidebar,
   hasOpenDocumentTabs,
   moveActiveDocumentTab,
-  moveSelectedDocument,
+  moveDocumentCursor,
   phase,
   selectedSidebarIndex,
   selectCollection,
@@ -57,7 +64,11 @@ export function useAppInput({
   setSelectedSidebarIndex,
   showConnectionList,
 }: UseAppInputParams): void {
+  const {stdout} = useStdout();
   const focusedSidebarItem = browserSidebarItems[selectedSidebarIndex];
+  const visibleDocumentRowCount = getVisibleDocumentRowCount(
+    getBrowserContentHeight(stdout.rows),
+  );
 
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
@@ -93,7 +104,7 @@ export function useAppInput({
     }
 
     if (activeBrowserContainer === MongoBrowserContainer.RightData) {
-      handleRightContainerInput(input, key.backspace, key.shift, key.tab);
+      handleRightContainerInput(input, key.backspace, key.ctrl, key.shift, key.tab);
       return;
     }
 
@@ -103,6 +114,7 @@ export function useAppInput({
   function handleRightContainerInput(
     input: string,
     isBackspace: boolean,
+    isCtrl: boolean,
     isShift: boolean,
     isTab: boolean,
   ): void {
@@ -125,13 +137,29 @@ export function useAppInput({
       return;
     }
 
-    if (canMoveSelectedDocument && input === 'j') {
-      moveSelectedDocument(1);
+    if (canMoveDocumentCursor && isCtrl && input === 'd') {
+      moveDocumentCursor({
+        delta: getDocumentPageMoveDelta(visibleDocumentRowCount),
+        visibleRowCount: visibleDocumentRowCount,
+      });
       return;
     }
 
-    if (canMoveSelectedDocument && input === 'k') {
-      moveSelectedDocument(-1);
+    if (canMoveDocumentCursor && isCtrl && input === 'u') {
+      moveDocumentCursor({
+        delta: -getDocumentPageMoveDelta(visibleDocumentRowCount),
+        visibleRowCount: visibleDocumentRowCount,
+      });
+      return;
+    }
+
+    if (canMoveDocumentCursor && input === 'j') {
+      moveDocumentCursor({delta: 1, visibleRowCount: visibleDocumentRowCount});
+      return;
+    }
+
+    if (canMoveDocumentCursor && input === 'k') {
+      moveDocumentCursor({delta: -1, visibleRowCount: visibleDocumentRowCount});
     }
   }
 
@@ -182,4 +210,10 @@ export function useAppInput({
       });
     }
   }
+}
+
+function getDocumentPageMoveDelta(
+  visibleRowCount: number | undefined,
+): number {
+  return Math.max(1, Math.floor((visibleRowCount ?? 1) / 2));
 }

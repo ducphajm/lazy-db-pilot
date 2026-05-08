@@ -2,6 +2,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {DatabaseType, type DatabaseConnection} from '../connections/types.js';
 import {MongoOperation} from '../mongodb/errors.js';
 import type {LoadCollectionDocuments} from '../types.js';
+import {getDocumentCardMetrics} from '../tui/DocumentCardList.js';
 import {getDisplayError} from './errors.js';
 import {AppPhase} from './phases.js';
 import {
@@ -32,7 +33,10 @@ export function useDocumentTabs({
   readonly moveActiveDocumentTab: (
     direction: DocumentTabMoveDirection,
   ) => void;
-  readonly moveSelectedDocument: (direction: -1 | 1) => void;
+  readonly moveDocumentCursor: (input: {
+    readonly delta: number;
+    readonly visibleRowCount: number | undefined;
+  }) => void;
   readonly openDocumentTab: (input: {
     readonly collectionName: string;
     readonly databaseName: string;
@@ -99,20 +103,21 @@ export function useDocumentTabs({
     });
   }, [selectedConnection, setPhase]);
 
-  const moveSelectedDocument = useCallback(
-    (direction: -1 | 1) => {
+  const moveDocumentCursor = useCallback(
+    ({
+      delta,
+      visibleRowCount,
+    }: {
+      readonly delta: number;
+      readonly visibleRowCount: number | undefined;
+    }) => {
       setDocumentTabs(currentTabs =>
         currentTabs.map(tab => {
           if (tab.id !== activeDocumentTabId || tab.documents.length === 0) {
             return tab;
           }
 
-          return {
-            ...tab,
-            selectedDocumentIndex:
-              (tab.selectedDocumentIndex + direction + tab.documents.length) %
-              tab.documents.length,
-          };
+          return moveTabDocumentCursor({delta, tab, visibleRowCount});
         }),
       );
     },
@@ -200,7 +205,9 @@ export function useDocumentTabs({
 
               return {
                 ...currentTab,
+                cursorLineIndex: 0,
                 documents: nextDocuments,
+                scrollOffset: 0,
                 selectedDocumentIndex: 0,
                 status:
                   nextDocuments.length > 0
@@ -232,7 +239,10 @@ export function useDocumentTabs({
 
               return {
                 ...currentTab,
+                cursorLineIndex: 0,
                 error: displayError,
+                scrollOffset: 0,
+                selectedDocumentIndex: 0,
                 status: CollectionDocumentTabStatus.Error,
               };
             }),
@@ -254,7 +264,71 @@ export function useDocumentTabs({
     closeActiveDocumentTab,
     documentTabs,
     moveActiveDocumentTab,
-    moveSelectedDocument,
+    moveDocumentCursor,
     openDocumentTab,
   };
+}
+
+export function moveTabDocumentCursor({
+  delta,
+  tab,
+  visibleRowCount,
+}: {
+  readonly delta: number;
+  readonly tab: CollectionDocumentTab;
+  readonly visibleRowCount: number | undefined;
+}): CollectionDocumentTab {
+  const metrics = getDocumentCardMetrics(tab.documents);
+  const maxCursorLineIndex = Math.max(0, metrics.cursorLineCount - 1);
+  const cursorLineIndex = Math.min(
+    Math.max(0, tab.cursorLineIndex + delta),
+    maxCursorLineIndex,
+  );
+  const cursorRowIndex = metrics.rows.findIndex(
+    row => row.cursorLineIndex === cursorLineIndex,
+  );
+  const selectedDocumentIndex =
+    metrics.rows[cursorRowIndex]?.documentIndex ?? tab.selectedDocumentIndex;
+  const scrollOffset = getNextScrollOffset({
+    cursorRowIndex,
+    rowCount: metrics.rows.length,
+    scrollOffset: tab.scrollOffset,
+    visibleRowCount,
+  });
+
+  return {
+    ...tab,
+    cursorLineIndex,
+    scrollOffset,
+    selectedDocumentIndex,
+  };
+}
+
+function getNextScrollOffset({
+  cursorRowIndex,
+  rowCount,
+  scrollOffset,
+  visibleRowCount,
+}: {
+  readonly cursorRowIndex: number;
+  readonly rowCount: number;
+  readonly scrollOffset: number;
+  readonly visibleRowCount: number | undefined;
+}): number {
+  if (visibleRowCount === undefined || visibleRowCount <= 0) {
+    return 0;
+  }
+
+  const maxScrollOffset = Math.max(0, rowCount - visibleRowCount);
+  let nextScrollOffset = Math.min(scrollOffset, maxScrollOffset);
+
+  if (cursorRowIndex < nextScrollOffset) {
+    nextScrollOffset = cursorRowIndex;
+  }
+
+  if (cursorRowIndex >= nextScrollOffset + visibleRowCount) {
+    nextScrollOffset = cursorRowIndex - visibleRowCount + 1;
+  }
+
+  return Math.min(Math.max(0, nextScrollOffset), maxScrollOffset);
 }

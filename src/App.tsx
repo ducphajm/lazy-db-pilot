@@ -462,6 +462,8 @@ export function App({
       inputError={inputError}
       isQuitConfirmationPending={isQuitConfirmationPending}
       onCancelConnectionForm={cancelConnectionForm}
+      onCancelQuitConfirmation={cancelQuitConfirmation}
+      onConfirmQuitConfirmation={confirmQuitConfirmation}
       onCreateConnection={() => resetCreation()}
       onDeleteConnection={requestConnectionDeletion}
       onDeleteConnectionConfirmation={handleDeleteConfirmation}

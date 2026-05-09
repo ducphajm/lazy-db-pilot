@@ -15,16 +15,57 @@ export enum ConfirmDeleteAction {
   Delete = 'delete',
 }
 
+export enum QuitConfirmationAction {
+  Cancel = 'cancel',
+  Quit = 'quit',
+}
+
 export enum RecoveryAction {
   CreateConnection = 'create-connection',
   SavedConnections = 'saved-connections',
 }
 
-export function QuitConfirmationPrompt(): React.JSX.Element {
+export function QuitConfirmationPrompt({
+  onSelect,
+}: {
+  readonly onSelect: (action: QuitConfirmationAction) => void;
+}): React.JSX.Element {
   return (
-    <StatusMessage variant="warning">
-      Quit application? Press y to quit or n to cancel.
-    </StatusMessage>
+    <ConfirmationModal
+      title="Quit application?"
+      message="Press y to quit or n to cancel."
+      items={quitConfirmationItems}
+      onSelect={onSelect}
+    />
+  );
+}
+
+function ConfirmationModal<T>({
+  items,
+  message,
+  onSelect,
+  title,
+}: {
+  readonly items: readonly SelectableListItem<T>[];
+  readonly message: string;
+  readonly onSelect: (action: T) => void;
+  readonly title: string;
+}): React.JSX.Element {
+  return (
+    <Box
+      alignSelf="center"
+      borderColor="yellow"
+      borderStyle="round"
+      flexDirection="column"
+      paddingX={2}
+      paddingY={1}
+    >
+      <Text color="yellow">{title}</Text>
+      <Text>{message}</Text>
+      <Box marginTop={1}>
+        <SelectableList items={items} onSelect={onSelect} />
+      </Box>
+    </Box>
   );
 }
 
@@ -210,5 +251,18 @@ const deleteConfirmationItems: SelectableListItem<ConfirmDeleteAction>[] = [
     key: ConfirmDeleteAction.Cancel,
     label: 'Cancel',
     value: ConfirmDeleteAction.Cancel,
+  },
+];
+
+const quitConfirmationItems: SelectableListItem<QuitConfirmationAction>[] = [
+  {
+    key: QuitConfirmationAction.Quit,
+    label: 'Quit',
+    value: QuitConfirmationAction.Quit,
+  },
+  {
+    key: QuitConfirmationAction.Cancel,
+    label: 'Cancel',
+    value: QuitConfirmationAction.Cancel,
   },
 ];

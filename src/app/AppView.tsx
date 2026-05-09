@@ -10,6 +10,7 @@ import {
   ConnectionList,
   DeleteConfirmation,
   LoadingScreen,
+  QuitConfirmationAction,
   QuitConfirmationPrompt,
   RecoveryAction,
   RecoveryScreen,
@@ -28,9 +29,11 @@ export type AppViewProps = {
   readonly connections: readonly DatabaseConnection[];
   readonly inputError: string | null;
   readonly isQuitConfirmationPending: boolean;
+  readonly onCancelQuitConfirmation: () => void;
   readonly onCreateConnection: () => void;
   readonly onDeleteConnection: (connection: DatabaseConnection) => void;
   readonly onDeleteConnectionConfirmation: (action: ConfirmDeleteAction) => void;
+  readonly onConfirmQuitConfirmation: () => void;
   readonly onCancelConnectionForm: () => void;
   readonly onSubmitConnectionForm: () => void;
   readonly onUpdateConnectionDraft: (draft: ConnectionFormDraft) => void;
@@ -51,9 +54,11 @@ export function AppView({
   connections,
   inputError,
   isQuitConfirmationPending,
+  onCancelQuitConfirmation,
   onCreateConnection,
   onDeleteConnection,
   onDeleteConnectionConfirmation,
+  onConfirmQuitConfirmation,
   onCancelConnectionForm,
   onSubmitConnectionForm,
   onUpdateConnectionDraft,
@@ -65,6 +70,14 @@ export function AppView({
   documentTabs,
   selectedSidebarIndex,
 }: AppViewProps): React.JSX.Element {
+  if (isQuitConfirmationPending) {
+    return (
+      <Screen>
+        <QuitConfirmationPrompt onSelect={handleQuitConfirmationSelect} />
+      </Screen>
+    );
+  }
+
   if (phase === AppPhase.LoadingConnections) {
     return renderWithQuitConfirmation(
       <LoadingScreen label="Loading saved connections" />,
@@ -204,11 +217,17 @@ export function AppView({
   function renderWithQuitConfirmation(
     element: React.JSX.Element,
   ): React.JSX.Element {
-    return (
-      <>
-        {element}
-        {isQuitConfirmationPending ? <QuitConfirmationPrompt /> : null}
-      </>
-    );
+    return element;
+  }
+
+  function handleQuitConfirmationSelect(
+    action: QuitConfirmationAction,
+  ): void {
+    if (action === QuitConfirmationAction.Quit) {
+      onConfirmQuitConfirmation();
+      return;
+    }
+
+    onCancelQuitConfirmation();
   }
 }

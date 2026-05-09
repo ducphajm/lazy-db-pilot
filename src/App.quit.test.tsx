@@ -24,6 +24,8 @@ describe('App quit confirmation', () => {
     await expectFrame(instance, 'Saved connections');
     instance.stdin.write('q');
     await expectFrame(instance, 'Quit application?');
+    await expectFrame(instance, '> Quit');
+    await expectFrame(instance, '  Cancel');
     expect(onExit).not.toHaveBeenCalled();
 
     instance.stdin.write('n');
@@ -33,6 +35,51 @@ describe('App quit confirmation', () => {
     instance.stdin.write('q');
     await expectFrame(instance, 'Quit application?');
     instance.stdin.write('y');
+
+    await vi.waitFor(() => {
+      expect(onExit).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('allows selecting cancel from the quit modal', async () => {
+    const onExit = vi.fn();
+    const instance = render(
+      <App
+        loadConnectionsList={async () => [
+          mongoConnection('Local Mongo', 'mongodb://example'),
+        ]}
+        onExit={onExit}
+      />,
+    );
+
+    await expectFrame(instance, 'Saved connections');
+    instance.stdin.write('q');
+    await expectFrame(instance, '> Quit');
+
+    instance.stdin.write('j');
+    await expectFrame(instance, '> Cancel');
+    instance.stdin.write('\r');
+
+    await expectMissingFrame(instance, 'Quit application?');
+    await expectFrame(instance, 'Saved connections');
+    expect(onExit).not.toHaveBeenCalled();
+  });
+
+  it('allows selecting quit from the quit modal', async () => {
+    const onExit = vi.fn();
+    const instance = render(
+      <App
+        loadConnectionsList={async () => [
+          mongoConnection('Local Mongo', 'mongodb://example'),
+        ]}
+        onExit={onExit}
+      />,
+    );
+
+    await expectFrame(instance, 'Saved connections');
+    instance.stdin.write('q');
+    await expectFrame(instance, '> Quit');
+    instance.stdin.write('\r');
 
     await vi.waitFor(() => {
       expect(onExit).toHaveBeenCalledTimes(1);

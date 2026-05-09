@@ -1,5 +1,6 @@
 import {Text} from 'ink';
 import {StatusMessage} from '@inkjs/ui';
+import type {SetStateAction} from 'react';
 import type {DatabaseConnection} from '../connections/types.js';
 import {ConnectionForm, type ConnectionFormDraft} from './ConnectionForm.js';
 import {MongoBrowserLayout} from './MongoBrowserLayout.js';
@@ -20,6 +21,7 @@ import {
   MongoBrowserContainer,
   type MongoBrowserSidebarItem,
 } from './mongodbBrowser.js';
+import type {CreateDocumentDraft} from './createDocument.js';
 
 export type AppViewProps = {
   readonly activeDocumentTab: CollectionDocumentTab | null;
@@ -27,6 +29,7 @@ export type AppViewProps = {
   readonly browserSidebarItems: readonly MongoBrowserSidebarItem[];
   readonly connectionDraft: ConnectionFormDraft;
   readonly connections: readonly DatabaseConnection[];
+  readonly createDocumentDraft: CreateDocumentDraft | null;
   readonly inputError: string | null;
   readonly isQuitConfirmationPending: boolean;
   readonly onCancelQuitConfirmation: () => void;
@@ -35,8 +38,11 @@ export type AppViewProps = {
   readonly onDeleteConnectionConfirmation: (action: ConfirmDeleteAction) => void;
   readonly onConfirmQuitConfirmation: () => void;
   readonly onCancelConnectionForm: () => void;
+  readonly onCancelCreateDocument: () => void;
   readonly onSubmitConnectionForm: () => void;
+  readonly onSubmitCreateDocument: () => void;
   readonly onUpdateConnectionDraft: (draft: ConnectionFormDraft) => void;
+  readonly onUpdateCreateDocumentText: (text: SetStateAction<string>) => void;
   readonly onRecovery: (action: RecoveryAction) => void;
   readonly onSelectConnection: (connection: DatabaseConnection) => void;
   readonly operationError: string | null;
@@ -52,6 +58,7 @@ export function AppView({
   browserSidebarItems,
   connectionDraft,
   connections,
+  createDocumentDraft,
   inputError,
   isQuitConfirmationPending,
   onCancelQuitConfirmation,
@@ -60,8 +67,11 @@ export function AppView({
   onDeleteConnectionConfirmation,
   onConfirmQuitConfirmation,
   onCancelConnectionForm,
+  onCancelCreateDocument,
   onSubmitConnectionForm,
+  onSubmitCreateDocument,
   onUpdateConnectionDraft,
+  onUpdateCreateDocumentText,
   onRecovery,
   onSelectConnection,
   operationError,
@@ -205,11 +215,15 @@ export function AppView({
       <MongoBrowserLayout
         activeContainer={activeBrowserContainer}
         activeDocumentTab={activeDocumentTab}
+        createDocumentDraft={createDocumentDraft}
         documentTabs={documentTabs}
         operationError={operationError}
         phase={phase}
         selectedSidebarIndex={selectedSidebarIndex}
         sidebarItems={browserSidebarItems}
+        onCancelCreateDocument={onCancelCreateDocument}
+        onSubmitCreateDocument={onSubmitCreateDocument}
+        onUpdateCreateDocumentText={onUpdateCreateDocumentText}
       />,
     );
   }

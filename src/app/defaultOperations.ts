@@ -2,10 +2,12 @@ import {addConnection, deleteConnection} from '../connections/persistence.js';
 import type {ConnectionInput, DatabaseConnection} from '../connections/types.js';
 import {
   loadMongoCollectionDocuments,
+  insertMongoCollectionDocument,
   listMongoCollections,
   listMongoDatabases,
 } from '../mongodb/service.js';
 import type {
+  InsertCollectionDocument,
   LoadCollectionDocuments,
   LoadCollections,
   LoadDatabases,
@@ -28,6 +30,13 @@ export const defaultLoadCollectionDocuments: LoadCollectionDocuments = (
   collectionName,
   limit,
 ) => loadMongoCollectionDocuments(url, databaseName, collectionName, limit);
+
+export const defaultInsertCollectionDocument: InsertCollectionDocument = (
+  url,
+  databaseName,
+  collectionName,
+  document,
+) => insertMongoCollectionDocument(url, databaseName, collectionName, document);
 
 export const defaultSaveConnection: SaveConnection = input =>
   addConnection(input);

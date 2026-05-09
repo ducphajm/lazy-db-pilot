@@ -16,6 +16,7 @@ import {
 } from './app/ConnectionForm.js';
 import {
   defaultDeleteConnection,
+  defaultInsertCollectionDocument,
   defaultLoadCollectionDocuments,
   defaultLoadCollections,
   defaultLoadDatabases,
@@ -31,12 +32,12 @@ import {
 import {AppPhase} from './app/phases.js';
 import {RecoveryAction} from './app/ui.js';
 import {useAppInput} from './app/useAppInput.js';
-import {
-  useConnectionDeletion,
-} from './app/useConnectionDeletion.js';
+import {useConnectionDeletion} from './app/useConnectionDeletion.js';
+import {useCreateDocumentDraft} from './app/useCreateDocumentDraft.js';
 import {useDocumentTabs} from './app/useDocumentTabs.js';
 
 export function App({
+  insertCollectionDocument = defaultInsertCollectionDocument,
   loadCollectionDocuments = defaultLoadCollectionDocuments,
   loadCollections = defaultLoadCollections,
   loadConnectionsList = loadConnections,
@@ -93,10 +94,22 @@ export function App({
     moveActiveDocumentTab,
     moveDocumentCursor,
     openDocumentTab,
+    reloadDocumentTab,
   } = useDocumentTabs({
     loadCollectionDocuments,
     selectedConnection,
     setPhase,
+  });
+  const {
+    createDocumentDraft,
+    cancelCreateDocument,
+    startCreateDocument,
+    submitCreateDocument,
+    updateCreateDocumentText,
+  } = useCreateDocumentDraft({
+    insertCollectionDocument,
+    reloadDocumentTab,
+    selectedConnection,
   });
 
   const resetCreation = useCallback((message: string | null = null) => {
@@ -283,14 +296,16 @@ export function App({
       activeDocumentTab?.status === CollectionDocumentTabStatus.Loaded,
     closeActiveDocumentTab,
     closeDatabaseFolder,
+    cancelCreateDocument,
     confirmQuitConfirmation,
-    exitApp,
     focusLeftSidebar,
     hasOpenDocumentTabs: documentTabs.length > 0,
+    isCreateDocumentDraftActive: createDocumentDraft !== null,
     isQuitConfirmationPending,
     moveActiveDocumentTab,
     moveDocumentCursor,
     phase,
+    startCreateDocument: () => startCreateDocument(activeDocumentTab),
     selectedSidebarIndex,
     selectCollection,
     selectDatabase,
@@ -458,18 +473,22 @@ export function App({
       browserSidebarItems={browserSidebarItems}
       connectionDraft={draft}
       connections={connections}
+      createDocumentDraft={createDocumentDraft}
       documentTabs={documentTabs}
       inputError={inputError}
       isQuitConfirmationPending={isQuitConfirmationPending}
       onCancelConnectionForm={cancelConnectionForm}
       onCancelQuitConfirmation={cancelQuitConfirmation}
       onConfirmQuitConfirmation={confirmQuitConfirmation}
+      onCancelCreateDocument={cancelCreateDocument}
       onCreateConnection={() => resetCreation()}
       onDeleteConnection={requestConnectionDeletion}
       onDeleteConnectionConfirmation={handleDeleteConfirmation}
       onRecovery={handleRecovery}
       onSelectConnection={selectConnection}
       onSubmitConnectionForm={submitConnectionForm}
+      onSubmitCreateDocument={submitCreateDocument}
+      onUpdateCreateDocumentText={updateCreateDocumentText}
       onUpdateConnectionDraft={setDraft}
       operationError={operationError}
       phase={phase}

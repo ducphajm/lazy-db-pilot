@@ -41,6 +41,7 @@ export function useDocumentTabs({
     readonly collectionName: string;
     readonly databaseName: string;
   }) => void;
+  readonly reloadDocumentTab: (tabId: string) => void;
 } {
   const [documentTabs, setDocumentTabs] = useState<CollectionDocumentTab[]>([]);
   const [activeDocumentTabId, setActiveDocumentTabId] = useState<string | null>(
@@ -177,6 +178,32 @@ export function useDocumentTabs({
     });
   }, [activeDocumentTabId, setPhase]);
 
+  const reloadDocumentTab = useCallback((tabId: string) => {
+    loadingDocumentTabIds.current.delete(tabId);
+    setDocumentTabs(currentTabs =>
+      currentTabs.map(tab => {
+        if (tab.id !== tabId) {
+          return tab;
+        }
+
+        return {
+          ...tab,
+          cursorLineIndex: 0,
+          documents: [],
+          error: null,
+          scrollOffset: 0,
+          selectedDocumentIndex: 0,
+          status: CollectionDocumentTabStatus.Loading,
+        };
+      }),
+    );
+
+    if (activeDocumentTabIdRef.current === tabId) {
+      setPhase(AppPhase.LoadingCollectionData);
+    }
+  }, [setPhase]);
+
+
   useEffect(() => {
     if (selectedConnection?.type !== DatabaseType.MongoDB) {
       return;
@@ -266,6 +293,7 @@ export function useDocumentTabs({
     moveActiveDocumentTab,
     moveDocumentCursor,
     openDocumentTab,
+    reloadDocumentTab,
   };
 }
 

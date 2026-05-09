@@ -100,7 +100,7 @@ describe('App quit confirmation', () => {
     expect(onExit).not.toHaveBeenCalled();
   });
 
-  it('exits immediately with Ctrl+C', async () => {
+  it('does not exit with Ctrl+C', async () => {
     const onExit = vi.fn();
     const instance = render(
       <App
@@ -114,9 +114,8 @@ describe('App quit confirmation', () => {
     await expectFrame(instance, 'Saved connections');
     instance.stdin.write('\x03');
 
-    await vi.waitFor(() => {
-      expect(onExit).toHaveBeenCalledTimes(1);
-    });
+    expect(onExit).not.toHaveBeenCalled();
+    await expectFrame(instance, 'Saved connections');
   });
 });
 

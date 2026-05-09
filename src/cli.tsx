@@ -21,7 +21,7 @@ export async function startCli({
 
   try {
     const instance = render(<App />, {
-      exitOnCtrlC: true,
+      exitOnCtrlC: false,
       stdout,
     });
 

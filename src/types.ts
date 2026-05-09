@@ -13,3 +13,10 @@ export type LoadCollectionDocuments = (
   collectionName: string,
   limit?: number,
 ) => Promise<MongoCollectionDocument[]>;
+
+export type InsertCollectionDocument = (
+  url: string,
+  databaseName: string,
+  collectionName: string,
+  document: MongoCollectionDocument,
+) => Promise<void>;

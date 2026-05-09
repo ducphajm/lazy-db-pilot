@@ -30,6 +30,7 @@ export type MongoCollectionLike = {
     filter: Document,
     options: {readonly limit: number},
   ) => MongoFindCursorLike;
+  insertOne: (document: Document) => Promise<unknown>;
 };
 
 export type MongoFindCursorLike = {
@@ -104,6 +105,25 @@ export async function loadMongoCollectionDocuments(
     return [...documents];
   } catch (error: unknown) {
     throw new MongoServiceError(MongoOperation.LoadCollectionDocuments, error);
+  } finally {
+    await client.close();
+  }
+}
+
+export async function insertMongoCollectionDocument(
+  url: string,
+  databaseName: string,
+  collectionName: string,
+  document: MongoCollectionDocument,
+  createClient: MongoClientFactory = createMongoClient,
+): Promise<void> {
+  const client = createClient(url);
+
+  try {
+    await client.connect();
+    await client.db(databaseName).collection(collectionName).insertOne(document);
+  } catch (error: unknown) {
+    throw new MongoServiceError(MongoOperation.InsertDocument, error);
   } finally {
     await client.close();
   }

@@ -10,20 +10,15 @@ afterEach(() => {
 });
 
 describe('useAppInput', () => {
-  it('opens quit confirmation with q without exiting', () => {
-    const exitApp = vi.fn();
+  it('opens quit confirmation with q', () => {
     const requestQuitConfirmation = vi.fn();
     const instance = render(
-      <InputHarness
-        exitApp={exitApp}
-        requestQuitConfirmation={requestQuitConfirmation}
-      />,
+      <InputHarness requestQuitConfirmation={requestQuitConfirmation} />,
     );
 
     instance.stdin.write('q');
 
     expect(requestQuitConfirmation).toHaveBeenCalledTimes(1);
-    expect(exitApp).not.toHaveBeenCalled();
   });
 
   it('confirms and cancels pending quit confirmation', () => {
@@ -44,19 +39,14 @@ describe('useAppInput', () => {
     expect(confirmQuitConfirmation).toHaveBeenCalledTimes(1);
   });
 
-  it('exits immediately with Ctrl+C', () => {
-    const exitApp = vi.fn();
+  it('ignores Ctrl+C without exiting or opening confirmation', () => {
     const requestQuitConfirmation = vi.fn();
     const instance = render(
-      <InputHarness
-        exitApp={exitApp}
-        requestQuitConfirmation={requestQuitConfirmation}
-      />,
+      <InputHarness requestQuitConfirmation={requestQuitConfirmation} />,
     );
 
     instance.stdin.write('\x03');
 
-    expect(exitApp).toHaveBeenCalledTimes(1);
     expect(requestQuitConfirmation).not.toHaveBeenCalled();
   });
 
@@ -88,40 +78,69 @@ describe('useAppInput', () => {
       visibleRowCount: undefined,
     });
   });
+
+  it('starts document creation with a when a document tab is open', () => {
+    const startCreateDocument = vi.fn();
+    const instance = render(
+      <InputHarness startCreateDocument={startCreateDocument} />,
+    );
+
+    instance.stdin.write('a');
+
+    expect(startCreateDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a when no document tab is open', () => {
+    const startCreateDocument = vi.fn();
+    const instance = render(
+      <InputHarness
+        hasOpenDocumentTabs={false}
+        startCreateDocument={startCreateDocument}
+      />,
+    );
+
+    instance.stdin.write('a');
+
+    expect(startCreateDocument).not.toHaveBeenCalled();
+  });
 });
 
 function InputHarness({
   cancelQuitConfirmation = () => {},
   confirmQuitConfirmation = () => {},
-  exitApp = () => {},
+  hasOpenDocumentTabs = true,
   isQuitConfirmationPending = false,
   moveDocumentCursor = () => {},
   requestQuitConfirmation = () => {},
+  startCreateDocument = () => {},
 }: {
+  readonly hasOpenDocumentTabs?: boolean;
   readonly cancelQuitConfirmation?: () => void;
   readonly confirmQuitConfirmation?: () => void;
-  readonly exitApp?: () => void;
   readonly isQuitConfirmationPending?: boolean;
   readonly moveDocumentCursor?: (input: {
     readonly delta: number;
     readonly visibleRowCount: number | undefined;
   }) => void;
   readonly requestQuitConfirmation?: () => void;
+  readonly startCreateDocument?: () => void;
 }): React.JSX.Element {
   useAppInput({
     activeBrowserContainer: MongoBrowserContainer.RightData,
     browserSidebarItems: [],
     canMoveDocumentCursor: true,
+    cancelCreateDocument: () => {},
     closeActiveDocumentTab: () => {},
     closeDatabaseFolder: () => {},
     confirmQuitConfirmation,
-    exitApp,
     focusLeftSidebar: () => {},
-    hasOpenDocumentTabs: true,
+    hasOpenDocumentTabs,
+    isCreateDocumentDraftActive: false,
     isQuitConfirmationPending,
     moveActiveDocumentTab: () => {},
     moveDocumentCursor,
     phase: AppPhase.CollectionDataLoaded,
+    startCreateDocument,
     selectedSidebarIndex: 0,
     selectCollection: () => {},
     selectDatabase: () => {},

@@ -1,12 +1,10 @@
 import {Box, Text, useStdout} from 'ink';
 import {Spinner, StatusMessage} from '@inkjs/ui';
 import {memo} from 'react';
-import type {ReactNode} from 'react';
-import {DocumentCardList} from '../tui/DocumentCardList.js';
-import {
-  CollectionDocumentTabStatus,
-  type CollectionDocumentTab,
-} from './documentTabs.js';
+import type {SetStateAction} from 'react';
+import type {CreateDocumentDraft} from './createDocument.js';
+import type {CollectionDocumentTab} from './documentTabs.js';
+import {BrowserPane, MemoizedRightBrowserPane} from './DocumentsPane.js';
 import {AppPhase} from './phases.js';
 import {Screen} from './ui.js';
 import {
@@ -18,23 +16,31 @@ import {
 export type MongoBrowserLayoutProps = {
   readonly activeContainer: MongoBrowserContainer;
   readonly activeDocumentTab: CollectionDocumentTab | null;
+  readonly createDocumentDraft: CreateDocumentDraft | null;
   readonly documentTabs: readonly CollectionDocumentTab[];
   readonly leftPaneWidth?: number;
   readonly operationError: string | null;
   readonly phase: AppPhase;
   readonly selectedSidebarIndex: number;
   readonly sidebarItems: readonly MongoBrowserSidebarItem[];
+  readonly onCancelCreateDocument: () => void;
+  readonly onSubmitCreateDocument: () => void;
+  readonly onUpdateCreateDocumentText: (text: SetStateAction<string>) => void;
 };
 
 export function MongoBrowserLayout({
   activeContainer,
   activeDocumentTab,
+  createDocumentDraft,
   documentTabs,
   leftPaneWidth = defaultLeftBrowserPaneWidth,
   operationError,
   phase,
   selectedSidebarIndex,
   sidebarItems,
+  onCancelCreateDocument,
+  onSubmitCreateDocument,
+  onUpdateCreateDocumentText,
 }: MongoBrowserLayoutProps): React.JSX.Element {
   const {stdout} = useStdout();
   const browserHeight = getBrowserContentHeight(stdout.rows);
@@ -55,9 +61,13 @@ export function MongoBrowserLayout({
         <MemoizedRightBrowserPane
           activeContainer={activeContainer}
           activeDocumentTab={activeDocumentTab}
+          createDocumentDraft={createDocumentDraft}
           documentTabs={documentTabs}
           operationError={operationError}
           visibleDocumentRowCount={visibleDocumentRowCount}
+          onCancelCreateDocument={onCancelCreateDocument}
+          onSubmitCreateDocument={onSubmitCreateDocument}
+          onUpdateCreateDocumentText={onUpdateCreateDocumentText}
         />
       </Box>
       <Text dimColor>
@@ -128,83 +138,6 @@ function LeftBrowserPane({
   );
 }
 
-const MemoizedRightBrowserPane = memo(RightBrowserPane);
-
-function RightBrowserPane({
-  activeContainer,
-  activeDocumentTab,
-  documentTabs,
-  operationError,
-  visibleDocumentRowCount,
-}: {
-  readonly activeContainer: MongoBrowserContainer;
-  readonly activeDocumentTab: CollectionDocumentTab | null;
-  readonly documentTabs: readonly CollectionDocumentTab[];
-  readonly operationError: string | null;
-  readonly visibleDocumentRowCount: number | undefined;
-}): React.JSX.Element {
-  return (
-    <BrowserPane
-      flexGrow={1}
-      flexShrink={1}
-      isFocused={activeContainer === MongoBrowserContainer.RightData}
-      title="Documents"
-    >
-      <DocumentTabStrip
-        activeDocumentTab={activeDocumentTab}
-        documentTabs={documentTabs}
-      />
-      <Box
-        flexDirection="column"
-        flexShrink={1}
-        height={visibleDocumentRowCount}
-        overflowY="hidden"
-      >
-        <RightDataContent
-          activeDocumentTab={activeDocumentTab}
-          isFocused={activeContainer === MongoBrowserContainer.RightData}
-          operationError={operationError}
-          visibleDocumentRowCount={visibleDocumentRowCount}
-        />
-      </Box>
-    </BrowserPane>
-  );
-}
-
-function BrowserPane({
-  children,
-  flexGrow,
-  flexShrink,
-  isFocused,
-  title,
-  width,
-}: {
-  readonly children: ReactNode;
-  readonly flexGrow?: number;
-  readonly flexShrink?: number;
-  readonly isFocused: boolean;
-  readonly title: string;
-  readonly width?: number;
-}): React.JSX.Element {
-  return (
-    <Box
-      borderColor={isFocused ? 'cyan' : 'gray'}
-      borderStyle="single"
-      flexGrow={flexGrow}
-      flexShrink={flexShrink}
-      flexDirection="column"
-      height="100%"
-      minWidth={width}
-      overflowY="hidden"
-      paddingX={1}
-      width={width}
-    >
-      <Text color={isFocused ? 'cyan' : undefined}>{title}</Text>
-      {children}
-    </Box>
-  );
-}
-
 const MemoizedSidebarItem = memo(SidebarItem);
 
 function SidebarItem({
@@ -254,88 +187,6 @@ function SidebarFeedback({
   }
 
   return null;
-}
-
-function RightDataContent({
-  activeDocumentTab,
-  isFocused,
-  operationError,
-  visibleDocumentRowCount,
-}: {
-  readonly activeDocumentTab: CollectionDocumentTab | null;
-  readonly isFocused: boolean;
-  readonly operationError: string | null;
-  readonly visibleDocumentRowCount: number | undefined;
-}): React.JSX.Element {
-  if (activeDocumentTab === null) {
-    return <Text dimColor>No open document tabs.</Text>;
-  }
-
-  if (activeDocumentTab.status === CollectionDocumentTabStatus.Loading) {
-    return (
-      <Spinner label={`Loading documents from ${activeDocumentTab.collectionName}`} />
-    );
-  }
-
-  if (activeDocumentTab.status === CollectionDocumentTabStatus.Error) {
-    return (
-      <StatusMessage variant="error">
-        {activeDocumentTab.error ??
-          operationError ??
-          'Unable to load documents from the selected collection.'}
-      </StatusMessage>
-    );
-  }
-
-  if (activeDocumentTab.status === CollectionDocumentTabStatus.Empty) {
-    return (
-      <StatusMessage variant="warning">
-        No documents found in {activeDocumentTab.collectionName}.
-      </StatusMessage>
-    );
-  }
-
-  if (activeDocumentTab.status === CollectionDocumentTabStatus.Loaded) {
-    return (
-      <DocumentCardList
-        cursorLineIndex={activeDocumentTab.cursorLineIndex}
-        documents={activeDocumentTab.documents}
-        isFocused={isFocused}
-        scrollOffset={activeDocumentTab.scrollOffset}
-        selectedIndex={activeDocumentTab.selectedDocumentIndex}
-        visibleRowCount={visibleDocumentRowCount}
-      />
-    );
-  }
-
-  return <Text dimColor>No open document tabs.</Text>;
-}
-
-function DocumentTabStrip({
-  activeDocumentTab,
-  documentTabs,
-}: {
-  readonly activeDocumentTab: CollectionDocumentTab | null;
-  readonly documentTabs: readonly CollectionDocumentTab[];
-}): React.JSX.Element {
-  if (documentTabs.length === 0) {
-    return <Text dimColor>Tabs: none</Text>;
-  }
-
-  return (
-    <Box flexShrink={0} gap={1}>
-      {documentTabs.map(tab => {
-        const isActive = tab.id === activeDocumentTab?.id;
-        const label = `${tab.databaseName}.${tab.collectionName}`;
-
-        return (
-          <Text color={isActive ? 'cyan' : undefined} key={tab.id}>
-            {isActive ? '[' : ' '} {label} {isActive ? ']' : ' '}
-          </Text>
-        );
-      })}
-    </Box>
-  );
 }
 
 export function getBrowserContentHeight(

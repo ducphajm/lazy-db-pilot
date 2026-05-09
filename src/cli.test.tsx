@@ -27,7 +27,7 @@ describe('CLI entrypoint', () => {
 
     expect(write).toHaveBeenNthCalledWith(1, '\u001B[?1049h');
     expect(render).toHaveBeenCalledWith(expectReactElement(App), {
-      exitOnCtrlC: true,
+      exitOnCtrlC: false,
       stdout,
     } satisfies RenderOptions);
     expect(waitUntilExit).toHaveBeenCalledTimes(1);

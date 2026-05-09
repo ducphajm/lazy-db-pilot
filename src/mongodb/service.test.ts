@@ -3,6 +3,7 @@ import {MongoOperation, MongoServiceError} from './errors.js';
 import type {MongoClientFactory, MongoClientLike} from './service.js';
 import {
   DEFAULT_COLLECTION_DOCUMENT_LIMIT,
+  insertMongoCollectionDocument,
   listMongoCollections,
   listMongoDatabases,
   loadMongoCollectionDocuments,
@@ -28,6 +29,7 @@ function createMockClient(
         find: () => ({
           toArray: async () => [{_id: '1', name: 'Ada'}],
         }),
+        insertOne: async () => ({insertedId: '2'}),
       }),
     })),
     close: vi.fn(async () => undefined),
@@ -80,6 +82,37 @@ describe('MongoDB service', () => {
     ).resolves.toEqual([{_id: '1', name: 'Ada'}]);
   });
 
+  it('inserts a collection document', async () => {
+    const insertOne = vi.fn(async () => ({insertedId: '2'}));
+    const client = createMockClient({
+      db: () => ({
+        admin: () => ({
+          listDatabases: async () => ({databases: []}),
+        }),
+        collections: async () => [],
+        collection: () => ({
+          find: () => ({
+            toArray: async () => [],
+          }),
+          insertOne,
+        }),
+      }),
+    });
+    const createClient: MongoClientFactory = () => client;
+
+    await expect(
+      insertMongoCollectionDocument(
+        'mongodb://example',
+        'app',
+        'users',
+        {name: 'Ada'},
+        createClient,
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(insertOne).toHaveBeenCalledWith({name: 'Ada'});
+  });
+
   it('applies the default collection document limit', async () => {
     const find = vi.fn(() => ({
       toArray: async () => [{_id: '1'}],
@@ -90,7 +123,10 @@ describe('MongoDB service', () => {
           listDatabases: async () => ({databases: []}),
         }),
         collections: async () => [],
-        collection: () => ({find}),
+        collection: () => ({
+          find,
+          insertOne: async () => ({insertedId: '2'}),
+        }),
       }),
     });
     const createClient: MongoClientFactory = () => client;
@@ -123,6 +159,7 @@ describe('MongoDB service', () => {
           find: () => ({
             toArray: async () => [],
           }),
+          insertOne: async () => ({insertedId: '2'}),
         }),
       }),
       close,
@@ -151,6 +188,7 @@ describe('MongoDB service', () => {
               throw new Error('mongodb://user:secret@example failed');
             },
           }),
+          insertOne: async () => ({insertedId: '2'}),
         }),
       }),
       close,
@@ -168,6 +206,42 @@ describe('MongoDB service', () => {
     ).rejects.toMatchObject({
       operation: MongoOperation.LoadCollectionDocuments,
       message: 'Unable to load documents from the selected collection.',
+    } satisfies Partial<MongoServiceError>);
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it('maps insert failures and closes the client', async () => {
+    const close = vi.fn(async () => undefined);
+    const client = createMockClient({
+      db: () => ({
+        admin: () => ({
+          listDatabases: async () => ({databases: []}),
+        }),
+        collections: async () => [],
+        collection: () => ({
+          find: () => ({
+            toArray: async () => [],
+          }),
+          insertOne: async () => {
+            throw new Error('mongodb://user:secret@example failed');
+          },
+        }),
+      }),
+      close,
+    });
+    const createClient: MongoClientFactory = () => client;
+
+    await expect(
+      insertMongoCollectionDocument(
+        'mongodb://example',
+        'app',
+        'users',
+        {name: 'Ada'},
+        createClient,
+      ),
+    ).rejects.toMatchObject({
+      operation: MongoOperation.InsertDocument,
+      message: 'Unable to insert document into the selected collection.',
     } satisfies Partial<MongoServiceError>);
     expect(close).toHaveBeenCalledOnce();
   });

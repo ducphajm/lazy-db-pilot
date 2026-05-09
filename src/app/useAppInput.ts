@@ -19,12 +19,13 @@ export type UseAppInputParams = {
   readonly activeBrowserContainer: MongoBrowserContainer;
   readonly browserSidebarItems: readonly MongoBrowserSidebarItem[];
   readonly canMoveDocumentCursor: boolean;
+  readonly cancelCreateDocument: () => void;
   readonly closeActiveDocumentTab: () => void;
   readonly closeDatabaseFolder: (databaseName: string) => void;
   readonly confirmQuitConfirmation: () => void;
-  readonly exitApp: () => void;
   readonly focusLeftSidebar: () => void;
   readonly hasOpenDocumentTabs: boolean;
+  readonly isCreateDocumentDraftActive: boolean;
   readonly isQuitConfirmationPending: boolean;
   readonly moveActiveDocumentTab: (
     direction: DocumentTabMoveDirection,
@@ -34,6 +35,7 @@ export type UseAppInputParams = {
     readonly visibleRowCount: number | undefined;
   }) => void;
   readonly phase: AppPhase;
+  readonly startCreateDocument: () => void;
   readonly selectedSidebarIndex: number;
   readonly selectCollection: (collection: {
     readonly collectionName: string;
@@ -53,16 +55,18 @@ export function useAppInput({
   activeBrowserContainer,
   browserSidebarItems,
   canMoveDocumentCursor,
+  cancelCreateDocument,
   closeActiveDocumentTab,
   closeDatabaseFolder,
   confirmQuitConfirmation,
-  exitApp,
   focusLeftSidebar,
   hasOpenDocumentTabs,
+  isCreateDocumentDraftActive,
   isQuitConfirmationPending,
   moveActiveDocumentTab,
   moveDocumentCursor,
   phase,
+  startCreateDocument,
   selectedSidebarIndex,
   selectCollection,
   selectDatabase,
@@ -80,7 +84,6 @@ export function useAppInput({
 
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
-      exitApp();
       return;
     }
 
@@ -103,6 +106,14 @@ export function useAppInput({
     }
 
     if (!isMongoBrowserPhase(phase)) {
+      return;
+    }
+
+    if (isCreateDocumentDraftActive) {
+      if (key.escape) {
+        cancelCreateDocument();
+      }
+
       return;
     }
 
@@ -155,6 +166,11 @@ export function useAppInput({
 
     if (input === 'x' && hasOpenDocumentTabs) {
       closeActiveDocumentTab();
+      return;
+    }
+
+    if (input === 'a' && hasOpenDocumentTabs) {
+      startCreateDocument();
       return;
     }
 

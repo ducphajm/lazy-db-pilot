@@ -236,6 +236,7 @@ describe('MongoDB split browser', () => {
       <MongoBrowserLayout
         activeContainer={MongoBrowserContainer.LeftSidebar}
         activeDocumentTab={null}
+        createDocumentDraft={null}
         documentTabs={[]}
         leftPaneWidth={64}
         operationError={null}
@@ -256,6 +257,9 @@ describe('MongoDB split browser', () => {
             type: MongoBrowserSidebarItemType.Collection,
           },
         ]}
+        onCancelCreateDocument={() => {}}
+        onSubmitCreateDocument={() => {}}
+        onUpdateCreateDocumentText={() => {}}
       />,
     );
 

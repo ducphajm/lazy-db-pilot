@@ -10,6 +10,7 @@ import {
   ConnectionList,
   DeleteConfirmation,
   LoadingScreen,
+  QuitConfirmationPrompt,
   RecoveryAction,
   RecoveryScreen,
   Screen,
@@ -26,6 +27,7 @@ export type AppViewProps = {
   readonly connectionDraft: ConnectionFormDraft;
   readonly connections: readonly DatabaseConnection[];
   readonly inputError: string | null;
+  readonly isQuitConfirmationPending: boolean;
   readonly onCreateConnection: () => void;
   readonly onDeleteConnection: (connection: DatabaseConnection) => void;
   readonly onDeleteConnectionConfirmation: (action: ConfirmDeleteAction) => void;
@@ -48,6 +50,7 @@ export function AppView({
   connectionDraft,
   connections,
   inputError,
+  isQuitConfirmationPending,
   onCreateConnection,
   onDeleteConnection,
   onDeleteConnectionConfirmation,
@@ -63,20 +66,22 @@ export function AppView({
   selectedSidebarIndex,
 }: AppViewProps): React.JSX.Element {
   if (phase === AppPhase.LoadingConnections) {
-    return <LoadingScreen label="Loading saved connections" />;
+    return renderWithQuitConfirmation(
+      <LoadingScreen label="Loading saved connections" />,
+    );
   }
 
   if (phase === AppPhase.ConnectionsError) {
-    return (
+    return renderWithQuitConfirmation(
       <RecoveryScreen
         message={operationError ?? 'Unable to load saved connections.'}
         onSelect={onRecovery}
-      />
+      />,
     );
   }
 
   if (phase === AppPhase.ConnectionsLoaded) {
-    return (
+    return renderWithQuitConfirmation(
       <Screen>
         <Text>Saved connections</Text>
         <ConnectionList
@@ -85,7 +90,7 @@ export function AppView({
           onDelete={onDeleteConnection}
           onSelect={onSelectConnection}
         />
-      </Screen>
+      </Screen>,
     );
   }
 
@@ -106,56 +111,58 @@ export function AppView({
   }
 
   if (phase === AppPhase.SavingConnection) {
-    return <LoadingScreen label="Saving connection" />;
+    return renderWithQuitConfirmation(<LoadingScreen label="Saving connection" />);
   }
 
   if (phase === AppPhase.ConfirmingConnectionDeletion && selectedConnection !== null) {
-    return (
+    return renderWithQuitConfirmation(
       <DeleteConfirmation
         connection={selectedConnection}
         onSelect={onDeleteConnectionConfirmation}
-      />
+      />,
     );
   }
 
   if (phase === AppPhase.DeletingConnection) {
-    return <LoadingScreen label="Deleting connection" />;
+    return renderWithQuitConfirmation(
+      <LoadingScreen label="Deleting connection" />,
+    );
   }
 
   if (phase === AppPhase.UnsupportedConnection) {
-    return (
+    return renderWithQuitConfirmation(
       <RecoveryScreen
         message={`${selectedConnection?.type ?? 'Selected'} connections are not supported yet.`}
         onSelect={onRecovery}
         variant="warning"
-      />
+      />,
     );
   }
 
   if (phase === AppPhase.LoadingDatabases) {
-    return (
+    return renderWithQuitConfirmation(
       <LoadingScreen
         label={`Loading databases for ${selectedConnection?.name ?? 'connection'}`}
-      />
+      />,
     );
   }
 
   if (phase === AppPhase.DatabaseError) {
-    return (
+    return renderWithQuitConfirmation(
       <RecoveryScreen
         message={operationError ?? 'Unable to load databases.'}
         onSelect={onRecovery}
-      />
+      />,
     );
   }
 
   if (phase === AppPhase.DatabasesEmpty) {
-    return (
+    return renderWithQuitConfirmation(
       <RecoveryScreen
         message="No databases are available for this connection."
         onSelect={onRecovery}
         variant="warning"
-      />
+      />,
     );
   }
 
@@ -181,7 +188,7 @@ export function AppView({
   function renderBrowser(): React.JSX.Element {
     void onRecovery;
 
-    return (
+    return renderWithQuitConfirmation(
       <MongoBrowserLayout
         activeContainer={activeBrowserContainer}
         activeDocumentTab={activeDocumentTab}
@@ -190,7 +197,18 @@ export function AppView({
         phase={phase}
         selectedSidebarIndex={selectedSidebarIndex}
         sidebarItems={browserSidebarItems}
-      />
+      />,
+    );
+  }
+
+  function renderWithQuitConfirmation(
+    element: React.JSX.Element,
+  ): React.JSX.Element {
+    return (
+      <>
+        {element}
+        {isQuitConfirmationPending ? <QuitConfirmationPrompt /> : null}
+      </>
     );
   }
 }

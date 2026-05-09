@@ -290,42 +290,58 @@ The system SHALL load documents from the selected MongoDB database when the user
 - **AND** focus moves to the right data container
 
 ### Requirement: Collection Data Table Display
-The system SHALL display loaded collection documents in the active right-side tab as vertically stacked document cards, SHALL render every top-level field in each document vertically within its card, SHALL keep overflowing document card content hidden by the Documents view container, and SHALL highlight the selected document card with a distinct color when the right data container is focused.
+The system SHALL display loaded collection documents in the active right-side tab as vertically stacked document cards, SHALL render every top-level field in each document vertically within its card, SHALL keep overflowing document card content scrollable within the Documents view container, SHALL maintain an active cursor on the selected document card, and SHALL highlight the selected document card with a distinct color when the right data container is focused.
 
 #### Scenario: Collection has documents
 - **WHEN** the system successfully loads one or more documents from a collection
 - **THEN** the terminal UI displays each document in an individual card in the active collection tab
 - **AND** each card displays every top-level field from that document vertically
-- **AND** one document card is selected by default
+- **AND** one document card is selected by default with the active cursor on it
 - **AND** the selected document card is highlighted with a distinct color when the right data container is focused
 
-#### Scenario: User moves selected document down
+#### Scenario: User moves cursor down
 - **WHEN** the user is viewing loaded collection document cards in the active tab with the right data container focused
-- **AND** the selected document is not the last document
+- **AND** the active cursor is not on the last rendered line of the document content
 - **AND** the user presses `j`
-- **THEN** the selected document moves to the next document card
-- **AND** the newly selected document card is highlighted with the selected color
+- **THEN** the active cursor moves down by one rendered line or single-line field
+- **AND** the document card containing the active cursor is selected and highlighted with the selected color
+- **AND** the Documents view scrolls when needed to keep the active cursor visible within the right data container
 
-#### Scenario: User wraps selected document down from last document
+#### Scenario: User moves cursor down from last rendered line
 - **WHEN** the user is viewing loaded collection document cards in the active tab with the right data container focused
-- **AND** the selected document is the last document
+- **AND** the active cursor is on the last rendered line of the document content
 - **AND** the user presses `j`
-- **THEN** the selected document moves to the first document card
-- **AND** the newly selected document card is highlighted with the selected color
+- **THEN** the active cursor remains on the last rendered line
+- **AND** the selected document card remains highlighted with the selected color
 
-#### Scenario: User moves selected document up
+#### Scenario: User moves cursor up
 - **WHEN** the user is viewing loaded collection document cards in the active tab with the right data container focused
-- **AND** the selected document is not the first document
+- **AND** the active cursor is not on the first rendered line of the document content
 - **AND** the user presses `k`
-- **THEN** the selected document moves to the previous document card
-- **AND** the newly selected document card is highlighted with the selected color
+- **THEN** the active cursor moves up by one rendered line or single-line field
+- **AND** the document card containing the active cursor is selected and highlighted with the selected color
+- **AND** the Documents view scrolls when needed to keep the active cursor visible within the right data container
 
-#### Scenario: User wraps selected document up from first document
+#### Scenario: User moves cursor up from first rendered line
 - **WHEN** the user is viewing loaded collection document cards in the active tab with the right data container focused
-- **AND** the selected document is the first document
+- **AND** the active cursor is on the first rendered line of the document content
 - **AND** the user presses `k`
-- **THEN** the selected document moves to the last document card
-- **AND** the newly selected document card is highlighted with the selected color
+- **THEN** the active cursor remains on the first rendered line
+- **AND** the selected document card remains highlighted with the selected color
+
+#### Scenario: User pages document content down
+- **WHEN** the user is viewing loaded collection document cards in the active tab with the right data container focused
+- **AND** rendered document content extends below the visible Documents view area
+- **AND** the user presses `Ctrl+d`
+- **THEN** the active cursor moves down by a page of rendered document content
+- **AND** the Documents view scrolls to keep the active cursor visible within the right data container
+
+#### Scenario: User pages document content up
+- **WHEN** the user is viewing loaded collection document cards in the active tab with the right data container focused
+- **AND** rendered document content extends above the visible Documents view area
+- **AND** the user presses `Ctrl+u`
+- **THEN** the active cursor moves up by a page of rendered document content
+- **AND** the Documents view scrolls to keep the active cursor visible within the right data container
 
 #### Scenario: Collection has no documents
 - **WHEN** the system successfully loads no documents from a collection
@@ -343,8 +359,14 @@ The system SHALL display loaded collection documents in the active right-side ta
 #### Scenario: Collection document has more fields than fit in the Documents view
 - **WHEN** the system displays a document with more top-level fields than fit in the visible Documents view area
 - **THEN** the terminal UI renders every top-level field in the document card
-- **AND** the Documents view keeps overflowing content hidden within the right data container
+- **AND** the Documents view keeps overflowing content scrollable within the right data container
 - **AND** the terminal UI does not replace undisplayed fields with a hidden-field count summary
+
+#### Scenario: Documents exceed visible right pane height
+- **WHEN** the active collection tab contains more rendered document card content than fits in the visible Documents view height
+- **THEN** the terminal UI displays a visible subset of document card content within the right data container
+- **AND** the document content remains contained within the right data container
+- **AND** the document content does not overflow into the left sidebar or footer controls
 
 ### Requirement: Collection Data Feedback
 The system SHALL show clear terminal UI feedback in the active collection tab for loading and failure states while loading collection data.
@@ -406,11 +428,30 @@ The system SHALL run the CLI as a fullscreen terminal UI session when launched.
 - **THEN** the terminal UI opens in fullscreen mode before displaying the MongoDB URL prompt
 
 ### Requirement: Global Quit Controls
-The system SHALL allow the user to quit the terminal UI with `q` or `Ctrl+C`.
+The system SHALL allow the user to quit the terminal UI with confirmed `q` input or immediate `Ctrl+C`.
 
-#### Scenario: User quits with q
-- **WHEN** the terminal UI is open and the user presses `q`
+#### Scenario: User starts quit confirmation with q
+- **WHEN** the terminal UI is open on a non-text-entry screen
+- **AND** the user presses `q`
+- **THEN** the system displays a quit confirmation prompt
+- **AND** the system does not exit the terminal UI
+
+#### Scenario: User confirms quit
+- **WHEN** the quit confirmation prompt is displayed
+- **AND** the user presses `y`
 - **THEN** the system exits the terminal UI
+
+#### Scenario: User cancels quit
+- **WHEN** the quit confirmation prompt is displayed
+- **AND** the user presses `n`
+- **THEN** the system dismisses the quit confirmation prompt
+- **AND** the system remains in the terminal UI
+
+#### Scenario: User types q in connection creation form
+- **WHEN** the user is editing a text field in the connection creation form
+- **AND** the user presses `q`
+- **THEN** the system enters `q` into the focused text field
+- **AND** the system does not display a quit confirmation prompt
 
 #### Scenario: User quits with Ctrl+C
 - **WHEN** the terminal UI is open and the user presses `Ctrl+C`

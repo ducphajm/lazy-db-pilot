@@ -10,6 +10,56 @@ afterEach(() => {
 });
 
 describe('useAppInput', () => {
+  it('opens quit confirmation with q without exiting', () => {
+    const exitApp = vi.fn();
+    const requestQuitConfirmation = vi.fn();
+    const instance = render(
+      <InputHarness
+        exitApp={exitApp}
+        requestQuitConfirmation={requestQuitConfirmation}
+      />,
+    );
+
+    instance.stdin.write('q');
+
+    expect(requestQuitConfirmation).toHaveBeenCalledTimes(1);
+    expect(exitApp).not.toHaveBeenCalled();
+  });
+
+  it('confirms and cancels pending quit confirmation', () => {
+    const cancelQuitConfirmation = vi.fn();
+    const confirmQuitConfirmation = vi.fn();
+    const instance = render(
+      <InputHarness
+        cancelQuitConfirmation={cancelQuitConfirmation}
+        confirmQuitConfirmation={confirmQuitConfirmation}
+        isQuitConfirmationPending
+      />,
+    );
+
+    instance.stdin.write('n');
+    instance.stdin.write('y');
+
+    expect(cancelQuitConfirmation).toHaveBeenCalledTimes(1);
+    expect(confirmQuitConfirmation).toHaveBeenCalledTimes(1);
+  });
+
+  it('exits immediately with Ctrl+C', () => {
+    const exitApp = vi.fn();
+    const requestQuitConfirmation = vi.fn();
+    const instance = render(
+      <InputHarness
+        exitApp={exitApp}
+        requestQuitConfirmation={requestQuitConfirmation}
+      />,
+    );
+
+    instance.stdin.write('\x03');
+
+    expect(exitApp).toHaveBeenCalledTimes(1);
+    expect(requestQuitConfirmation).not.toHaveBeenCalled();
+  });
+
   it('moves the right document cursor with j, k, Ctrl+d, and Ctrl+u', () => {
     const moveDocumentCursor = vi.fn();
     const instance = render(
@@ -41,12 +91,22 @@ describe('useAppInput', () => {
 });
 
 function InputHarness({
-  moveDocumentCursor,
+  cancelQuitConfirmation = () => {},
+  confirmQuitConfirmation = () => {},
+  exitApp = () => {},
+  isQuitConfirmationPending = false,
+  moveDocumentCursor = () => {},
+  requestQuitConfirmation = () => {},
 }: {
-  readonly moveDocumentCursor: (input: {
+  readonly cancelQuitConfirmation?: () => void;
+  readonly confirmQuitConfirmation?: () => void;
+  readonly exitApp?: () => void;
+  readonly isQuitConfirmationPending?: boolean;
+  readonly moveDocumentCursor?: (input: {
     readonly delta: number;
     readonly visibleRowCount: number | undefined;
   }) => void;
+  readonly requestQuitConfirmation?: () => void;
 }): React.JSX.Element {
   useAppInput({
     activeBrowserContainer: MongoBrowserContainer.RightData,
@@ -54,9 +114,11 @@ function InputHarness({
     canMoveDocumentCursor: true,
     closeActiveDocumentTab: () => {},
     closeDatabaseFolder: () => {},
-    exitApp: () => {},
+    confirmQuitConfirmation,
+    exitApp,
     focusLeftSidebar: () => {},
     hasOpenDocumentTabs: true,
+    isQuitConfirmationPending,
     moveActiveDocumentTab: () => {},
     moveDocumentCursor,
     phase: AppPhase.CollectionDataLoaded,
@@ -65,6 +127,8 @@ function InputHarness({
     selectDatabase: () => {},
     setActiveBrowserContainer: () => {},
     setSelectedSidebarIndex: () => {},
+    cancelQuitConfirmation,
+    requestQuitConfirmation,
     showConnectionList: () => {},
   });
 

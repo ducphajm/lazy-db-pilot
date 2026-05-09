@@ -416,7 +416,7 @@ describe('App', () => {
     await expectFrame(failingInstance, 'Saved connections');
   });
 
-  it('allows q in the connection form and quits outside prompts', async () => {
+  it('allows q in the connection form and asks before quitting elsewhere', async () => {
     const onExit = vi.fn();
     const instance = render(
       <App
@@ -443,7 +443,8 @@ describe('App', () => {
     await expectFrame(instance, 'Saved connections');
     instance.stdin.write('q');
 
-    await expectCallback(onExit);
+    await expectFrame(instance, 'Quit application?');
+    expect(onExit).not.toHaveBeenCalled();
   });
 });
 
@@ -453,12 +454,6 @@ async function expectFrame(
 ): Promise<void> {
   await vi.waitFor(() => {
     expect(instance.lastFrame()).toContain(text);
-  });
-}
-
-async function expectCallback(callback: ReturnType<typeof vi.fn>): Promise<void> {
-  await vi.waitFor(() => {
-    expect(callback).toHaveBeenCalledTimes(1);
   });
 }
 

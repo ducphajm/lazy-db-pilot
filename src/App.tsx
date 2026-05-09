@@ -69,6 +69,8 @@ export function App({
     ReadonlySet<string>
   >(new Set());
   const [selectedSidebarIndex, setSelectedSidebarIndex] = useState(0);
+  const [isQuitConfirmationPending, setIsQuitConfirmationPending] =
+    useState(false);
   const exitApp = onExit ?? exit;
   const {
     clearPendingDeletion,
@@ -264,6 +266,15 @@ export function App({
 
     showConnectionList();
   }, [resetCreation, showConnectionList]);
+  const requestQuitConfirmation = useCallback(() => {
+    setIsQuitConfirmationPending(true);
+  }, []);
+  const cancelQuitConfirmation = useCallback(() => {
+    setIsQuitConfirmationPending(false);
+  }, []);
+  const confirmQuitConfirmation = useCallback(() => {
+    exitApp();
+  }, [exitApp]);
 
   useAppInput({
     activeBrowserContainer,
@@ -272,9 +283,11 @@ export function App({
       activeDocumentTab?.status === CollectionDocumentTabStatus.Loaded,
     closeActiveDocumentTab,
     closeDatabaseFolder,
+    confirmQuitConfirmation,
     exitApp,
     focusLeftSidebar,
     hasOpenDocumentTabs: documentTabs.length > 0,
+    isQuitConfirmationPending,
     moveActiveDocumentTab,
     moveDocumentCursor,
     phase,
@@ -283,6 +296,8 @@ export function App({
     selectDatabase,
     setActiveBrowserContainer,
     setSelectedSidebarIndex,
+    cancelQuitConfirmation,
+    requestQuitConfirmation,
     showConnectionList,
   });
 
@@ -445,6 +460,7 @@ export function App({
       connections={connections}
       documentTabs={documentTabs}
       inputError={inputError}
+      isQuitConfirmationPending={isQuitConfirmationPending}
       onCancelConnectionForm={cancelConnectionForm}
       onCreateConnection={() => resetCreation()}
       onDeleteConnection={requestConnectionDeletion}

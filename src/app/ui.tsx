@@ -20,6 +20,14 @@ export enum RecoveryAction {
   SavedConnections = 'saved-connections',
 }
 
+export function QuitConfirmationPrompt(): React.JSX.Element {
+  return (
+    <StatusMessage variant="warning">
+      Quit application? Press y to quit or n to cancel.
+    </StatusMessage>
+  );
+}
+
 export function ConnectionList({
   connections,
   onCreate,
@@ -66,7 +74,7 @@ export function ConnectionList({
           onSelect(value);
         }}
       />
-      <Text dimColor>Enter/l select, d delete, q exit.</Text>
+      <Text dimColor>Enter/l select, d delete, q asks to quit.</Text>
     </Box>
   );
 }

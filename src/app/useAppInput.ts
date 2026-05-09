@@ -21,9 +21,11 @@ export type UseAppInputParams = {
   readonly canMoveDocumentCursor: boolean;
   readonly closeActiveDocumentTab: () => void;
   readonly closeDatabaseFolder: (databaseName: string) => void;
+  readonly confirmQuitConfirmation: () => void;
   readonly exitApp: () => void;
   readonly focusLeftSidebar: () => void;
   readonly hasOpenDocumentTabs: boolean;
+  readonly isQuitConfirmationPending: boolean;
   readonly moveActiveDocumentTab: (
     direction: DocumentTabMoveDirection,
   ) => void;
@@ -42,6 +44,8 @@ export type UseAppInputParams = {
     SetStateAction<MongoBrowserContainer>
   >;
   readonly setSelectedSidebarIndex: Dispatch<SetStateAction<number>>;
+  readonly cancelQuitConfirmation: () => void;
+  readonly requestQuitConfirmation: () => void;
   readonly showConnectionList: () => void;
 };
 
@@ -51,9 +55,11 @@ export function useAppInput({
   canMoveDocumentCursor,
   closeActiveDocumentTab,
   closeDatabaseFolder,
+  confirmQuitConfirmation,
   exitApp,
   focusLeftSidebar,
   hasOpenDocumentTabs,
+  isQuitConfirmationPending,
   moveActiveDocumentTab,
   moveDocumentCursor,
   phase,
@@ -62,6 +68,8 @@ export function useAppInput({
   selectDatabase,
   setActiveBrowserContainer,
   setSelectedSidebarIndex,
+  cancelQuitConfirmation,
+  requestQuitConfirmation,
   showConnectionList,
 }: UseAppInputParams): void {
   const {stdout} = useStdout();
@@ -76,8 +84,21 @@ export function useAppInput({
       return;
     }
 
+    if (isQuitConfirmationPending) {
+      if (input === 'y') {
+        confirmQuitConfirmation();
+        return;
+      }
+
+      if (input === 'n' || key.escape) {
+        cancelQuitConfirmation();
+      }
+
+      return;
+    }
+
     if (input === 'q' && phase !== AppPhase.CreatingConnection) {
-      exitApp();
+      requestQuitConfirmation();
       return;
     }
 

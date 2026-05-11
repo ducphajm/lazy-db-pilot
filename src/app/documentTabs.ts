@@ -13,6 +13,25 @@ export enum DocumentTabMoveDirection {
   Forward = 1,
 }
 
+export enum DocumentCursorCommand {
+  JumpToBottom = 'jump-to-bottom',
+  JumpToTop = 'jump-to-top',
+  MoveRelative = 'move-relative',
+}
+
+export type MoveDocumentCursorInput =
+  | {
+      readonly command: DocumentCursorCommand.MoveRelative;
+      readonly delta: number;
+      readonly visibleRowCount: number | undefined;
+    }
+  | {
+      readonly command:
+        | DocumentCursorCommand.JumpToBottom
+        | DocumentCursorCommand.JumpToTop;
+      readonly visibleRowCount: number | undefined;
+    };
+
 export type CollectionDocumentTab = {
   readonly collectionName: string;
   readonly connectionName: string;

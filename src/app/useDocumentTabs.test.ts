@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {CollectionDocumentTabStatus} from './documentTabs.js';
+import {CollectionDocumentTabStatus, DocumentCursorCommand} from './documentTabs.js';
 import type {CollectionDocumentTab} from './documentTabs.js';
 import {moveTabDocumentCursor} from './useDocumentTabs.js';
 
@@ -18,6 +18,7 @@ describe('moveTabDocumentCursor', () => {
     });
 
     const nextTab = moveTabDocumentCursor({
+      command: DocumentCursorCommand.MoveRelative,
       delta: 4,
       tab,
       visibleRowCount: 3,
@@ -37,6 +38,7 @@ describe('moveTabDocumentCursor', () => {
     });
 
     const nextTab = moveTabDocumentCursor({
+      command: DocumentCursorCommand.MoveRelative,
       delta: 3,
       tab,
       visibleRowCount: 4,
@@ -55,6 +57,7 @@ describe('moveTabDocumentCursor', () => {
 
     expect(
       moveTabDocumentCursor({
+        command: DocumentCursorCommand.MoveRelative,
         delta: -10,
         tab,
         visibleRowCount: 5,
@@ -62,11 +65,53 @@ describe('moveTabDocumentCursor', () => {
     ).toBe(0);
     expect(
       moveTabDocumentCursor({
+        command: DocumentCursorCommand.MoveRelative,
         delta: 10,
         tab,
         visibleRowCount: 5,
       }).cursorLineIndex,
     ).toBe(1);
+  });
+
+  it('jumps to the top document cursor and scroll offset', () => {
+    const tab = documentTab({
+      cursorLineIndex: 3,
+      documents: [
+        {_id: '1', name: 'Ada'},
+        {_id: '2', name: 'Grace'},
+      ],
+      scrollOffset: 4,
+      selectedDocumentIndex: 1,
+    });
+
+    const nextTab = moveTabDocumentCursor({
+      command: DocumentCursorCommand.JumpToTop,
+      tab,
+      visibleRowCount: 3,
+    });
+
+    expect(nextTab.cursorLineIndex).toBe(0);
+    expect(nextTab.selectedDocumentIndex).toBe(0);
+    expect(nextTab.scrollOffset).toBe(0);
+  });
+
+  it('jumps to the bottom document cursor and scroll offset', () => {
+    const tab = documentTab({
+      documents: [
+        {_id: '1', name: 'Ada'},
+        {_id: '2', name: 'Grace'},
+      ],
+    });
+
+    const nextTab = moveTabDocumentCursor({
+      command: DocumentCursorCommand.JumpToBottom,
+      tab,
+      visibleRowCount: 3,
+    });
+
+    expect(nextTab.cursorLineIndex).toBe(3);
+    expect(nextTab.selectedDocumentIndex).toBe(1);
+    expect(nextTab.scrollOffset).toBe(5);
   });
 });
 

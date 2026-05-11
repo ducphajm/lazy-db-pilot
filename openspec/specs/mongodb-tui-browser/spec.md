@@ -341,7 +341,7 @@ The system SHALL load documents from the selected MongoDB database when the user
 - **AND** focus moves to the right data container
 
 ### Requirement: Collection Data Table Display
-The system SHALL display loaded collection documents in the active right-side tab as vertically stacked document cards, SHALL render every top-level field in each document vertically within its card, SHALL keep overflowing document card content scrollable within the Documents view container, SHALL maintain an active cursor on the selected document card, and SHALL highlight the selected document card with a distinct color when the right data container is focused.
+The system SHALL display loaded collection documents in the active right-side tab as vertically stacked document cards, SHALL render every top-level field in each document vertically within its card, SHALL keep overflowing document card content scrollable within the Documents view container, SHALL maintain an active cursor on the selected document card, SHALL allow Vim-style line, page, top, and bottom navigation through rendered document content, and SHALL highlight the selected document card with a distinct color when the right data container is focused.
 
 #### Scenario: Collection has documents
 - **WHEN** the system successfully loads one or more documents from a collection
@@ -392,6 +392,22 @@ The system SHALL display loaded collection documents in the active right-side ta
 - **AND** rendered document content extends above the visible Documents view area
 - **AND** the user presses `Ctrl+u`
 - **THEN** the active cursor moves up by a page of rendered document content
+- **AND** the Documents view scrolls to keep the active cursor visible within the right data container
+
+#### Scenario: User jumps to top of document content
+- **WHEN** the user is viewing loaded collection document cards in the active tab with the right data container focused
+- **AND** the active cursor is not on the first rendered line of the document content
+- **AND** the user presses `gg`
+- **THEN** the active cursor moves to the first rendered line of the document content
+- **AND** the first document card is selected and highlighted with the selected color
+- **AND** the Documents view scrolls to the top of the rendered document content
+
+#### Scenario: User jumps to bottom of document content
+- **WHEN** the user is viewing loaded collection document cards in the active tab with the right data container focused
+- **AND** the active cursor is not on the last rendered line of the document content
+- **AND** the user presses `Shift+G`
+- **THEN** the active cursor moves to the last rendered line of the document content
+- **AND** the last document card is selected and highlighted with the selected color
 - **AND** the Documents view scrolls to keep the active cursor visible within the right data container
 
 #### Scenario: Collection has no documents

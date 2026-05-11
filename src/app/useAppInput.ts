@@ -1,6 +1,10 @@
 import {useInput, useStdout} from 'ink';
-import type {Dispatch, SetStateAction} from 'react';
-import {DocumentTabMoveDirection} from './documentTabs.js';
+import {useRef, type Dispatch, type SetStateAction} from 'react';
+import {
+  DocumentCursorCommand,
+  DocumentTabMoveDirection,
+  type MoveDocumentCursorInput,
+} from './documentTabs.js';
 import {
   getBrowserContentHeight,
   getVisibleDocumentRowCount,
@@ -30,10 +34,7 @@ export type UseAppInputParams = {
   readonly moveActiveDocumentTab: (
     direction: DocumentTabMoveDirection,
   ) => void;
-  readonly moveDocumentCursor: (input: {
-    readonly delta: number;
-    readonly visibleRowCount: number | undefined;
-  }) => void;
+  readonly moveDocumentCursor: (input: MoveDocumentCursorInput) => void;
   readonly phase: AppPhase;
   readonly startCreateDocument: () => void;
   readonly selectedSidebarIndex: number;
@@ -78,6 +79,7 @@ export function useAppInput({
 }: UseAppInputParams): void {
   const {stdout} = useStdout();
   const focusedSidebarItem = browserSidebarItems[selectedSidebarIndex];
+  const hasPendingRightContainerGInput = useRef(false);
   const visibleDocumentRowCount = getVisibleDocumentRowCount(
     getBrowserContentHeight(stdout.rows),
   );
@@ -140,6 +142,7 @@ export function useAppInput({
       return;
     }
 
+    hasPendingRightContainerGInput.current = false;
     handleLeftSidebarInput(input, key.return, key.backspace);
   });
 
@@ -150,6 +153,22 @@ export function useAppInput({
     isShift: boolean,
     isTab: boolean,
   ): void {
+    if (canMoveDocumentCursor && !isCtrl && input === 'g') {
+      if (hasPendingRightContainerGInput.current) {
+        hasPendingRightContainerGInput.current = false;
+        moveDocumentCursor({
+          command: DocumentCursorCommand.JumpToTop,
+          visibleRowCount: visibleDocumentRowCount,
+        });
+        return;
+      }
+
+      hasPendingRightContainerGInput.current = true;
+      return;
+    }
+
+    hasPendingRightContainerGInput.current = false;
+
     if (hasOpenDocumentTabs && isTab) {
       moveActiveDocumentTab(
         isShift
@@ -176,6 +195,7 @@ export function useAppInput({
 
     if (canMoveDocumentCursor && isCtrl && input === 'd') {
       moveDocumentCursor({
+        command: DocumentCursorCommand.MoveRelative,
         delta: getDocumentPageMoveDelta(visibleDocumentRowCount),
         visibleRowCount: visibleDocumentRowCount,
       });
@@ -184,19 +204,36 @@ export function useAppInput({
 
     if (canMoveDocumentCursor && isCtrl && input === 'u') {
       moveDocumentCursor({
+        command: DocumentCursorCommand.MoveRelative,
         delta: -getDocumentPageMoveDelta(visibleDocumentRowCount),
         visibleRowCount: visibleDocumentRowCount,
       });
       return;
     }
 
+    if (canMoveDocumentCursor && input === 'G') {
+      moveDocumentCursor({
+        command: DocumentCursorCommand.JumpToBottom,
+        visibleRowCount: visibleDocumentRowCount,
+      });
+      return;
+    }
+
     if (canMoveDocumentCursor && input === 'j') {
-      moveDocumentCursor({delta: 1, visibleRowCount: visibleDocumentRowCount});
+      moveDocumentCursor({
+        command: DocumentCursorCommand.MoveRelative,
+        delta: 1,
+        visibleRowCount: visibleDocumentRowCount,
+      });
       return;
     }
 
     if (canMoveDocumentCursor && input === 'k') {
-      moveDocumentCursor({delta: -1, visibleRowCount: visibleDocumentRowCount});
+      moveDocumentCursor({
+        command: DocumentCursorCommand.MoveRelative,
+        delta: -1,
+        visibleRowCount: visibleDocumentRowCount,
+      });
     }
   }
 

@@ -7,6 +7,7 @@ import {getDisplayError} from './errors.js';
 import {AppPhase} from './phases.js';
 import {
   CollectionDocumentTabStatus,
+  DocumentCursorCommand,
   DocumentTabMoveDirection,
   createCollectionDocumentTabId,
   createLoadingCollectionDocumentTab,
@@ -15,6 +16,7 @@ import {
   getDocumentTabPhase,
   getMovedDocumentTabId,
   type CollectionDocumentTab,
+  type MoveDocumentCursorInput,
 } from './documentTabs.js';
 
 export function useDocumentTabs({
@@ -33,10 +35,7 @@ export function useDocumentTabs({
   readonly moveActiveDocumentTab: (
     direction: DocumentTabMoveDirection,
   ) => void;
-  readonly moveDocumentCursor: (input: {
-    readonly delta: number;
-    readonly visibleRowCount: number | undefined;
-  }) => void;
+  readonly moveDocumentCursor: (input: MoveDocumentCursorInput) => void;
   readonly openDocumentTab: (input: {
     readonly collectionName: string;
     readonly databaseName: string;
@@ -105,20 +104,14 @@ export function useDocumentTabs({
   }, [selectedConnection, setPhase]);
 
   const moveDocumentCursor = useCallback(
-    ({
-      delta,
-      visibleRowCount,
-    }: {
-      readonly delta: number;
-      readonly visibleRowCount: number | undefined;
-    }) => {
+    (input: MoveDocumentCursorInput) => {
       setDocumentTabs(currentTabs =>
         currentTabs.map(tab => {
           if (tab.id !== activeDocumentTabId || tab.documents.length === 0) {
             return tab;
           }
 
-          return moveTabDocumentCursor({delta, tab, visibleRowCount});
+          return moveTabDocumentCursor({...input, tab});
         }),
       );
     },
@@ -297,32 +290,33 @@ export function useDocumentTabs({
   };
 }
 
-export function moveTabDocumentCursor({
-  delta,
-  tab,
-  visibleRowCount,
-}: {
-  readonly delta: number;
-  readonly tab: CollectionDocumentTab;
-  readonly visibleRowCount: number | undefined;
-}): CollectionDocumentTab {
+export function moveTabDocumentCursor(
+  input: MoveDocumentCursorInput & {
+    readonly tab: CollectionDocumentTab;
+  },
+): CollectionDocumentTab {
+  const {tab, visibleRowCount} = input;
   const metrics = getDocumentCardMetrics(tab.documents);
   const maxCursorLineIndex = Math.max(0, metrics.cursorLineCount - 1);
-  const cursorLineIndex = Math.min(
-    Math.max(0, tab.cursorLineIndex + delta),
+  const cursorLineIndex = getNextCursorLineIndex({
+    command: input,
+    currentCursorLineIndex: tab.cursorLineIndex,
     maxCursorLineIndex,
-  );
+  });
   const cursorRowIndex = metrics.rows.findIndex(
     row => row.cursorLineIndex === cursorLineIndex,
   );
   const selectedDocumentIndex =
     metrics.rows[cursorRowIndex]?.documentIndex ?? tab.selectedDocumentIndex;
-  const scrollOffset = getNextScrollOffset({
-    cursorRowIndex,
-    rowCount: metrics.rows.length,
-    scrollOffset: tab.scrollOffset,
-    visibleRowCount,
-  });
+  const scrollOffset =
+    input.command === DocumentCursorCommand.JumpToTop
+      ? 0
+      : getNextScrollOffset({
+          cursorRowIndex,
+          rowCount: metrics.rows.length,
+          scrollOffset: tab.scrollOffset,
+          visibleRowCount,
+        });
 
   return {
     ...tab,
@@ -330,6 +324,28 @@ export function moveTabDocumentCursor({
     scrollOffset,
     selectedDocumentIndex,
   };
+}
+
+function getNextCursorLineIndex({
+  command,
+  currentCursorLineIndex,
+  maxCursorLineIndex,
+}: {
+  readonly command: MoveDocumentCursorInput;
+  readonly currentCursorLineIndex: number;
+  readonly maxCursorLineIndex: number;
+}): number {
+  switch (command.command) {
+    case DocumentCursorCommand.JumpToBottom:
+      return maxCursorLineIndex;
+    case DocumentCursorCommand.JumpToTop:
+      return 0;
+    case DocumentCursorCommand.MoveRelative:
+      return Math.min(
+        Math.max(0, currentCursorLineIndex + command.delta),
+        maxCursorLineIndex,
+      );
+  }
 }
 
 function getNextScrollOffset({

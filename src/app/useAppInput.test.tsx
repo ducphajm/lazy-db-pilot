@@ -1,6 +1,7 @@
 import React from 'react';
 import {cleanup, render} from 'ink-testing-library';
 import {afterEach, describe, expect, it, vi} from 'vitest';
+import {DocumentCursorCommand, type MoveDocumentCursorInput} from './documentTabs.js';
 import {MongoBrowserContainer} from './mongodbBrowser.js';
 import {AppPhase} from './phases.js';
 import {useAppInput} from './useAppInput.js';
@@ -62,19 +63,72 @@ describe('useAppInput', () => {
     instance.stdin.write('\x15');
 
     expect(moveDocumentCursor).toHaveBeenNthCalledWith(1, {
+      command: DocumentCursorCommand.MoveRelative,
       delta: 1,
       visibleRowCount: undefined,
     });
     expect(moveDocumentCursor).toHaveBeenNthCalledWith(2, {
+      command: DocumentCursorCommand.MoveRelative,
       delta: -1,
       visibleRowCount: undefined,
     });
     expect(moveDocumentCursor).toHaveBeenNthCalledWith(3, {
+      command: DocumentCursorCommand.MoveRelative,
       delta: 1,
       visibleRowCount: undefined,
     });
     expect(moveDocumentCursor).toHaveBeenNthCalledWith(4, {
+      command: DocumentCursorCommand.MoveRelative,
       delta: -1,
+      visibleRowCount: undefined,
+    });
+  });
+
+  it('moves the right document cursor to the top with gg', () => {
+    const moveDocumentCursor = vi.fn();
+    const instance = render(
+      <InputHarness moveDocumentCursor={moveDocumentCursor} />,
+    );
+
+    instance.stdin.write('g');
+    instance.stdin.write('g');
+
+    expect(moveDocumentCursor).toHaveBeenCalledTimes(1);
+    expect(moveDocumentCursor).toHaveBeenCalledWith({
+      command: DocumentCursorCommand.JumpToTop,
+      visibleRowCount: undefined,
+    });
+  });
+
+  it('moves the right document cursor to the bottom with G', () => {
+    const moveDocumentCursor = vi.fn();
+    const instance = render(
+      <InputHarness moveDocumentCursor={moveDocumentCursor} />,
+    );
+
+    instance.stdin.write('G');
+
+    expect(moveDocumentCursor).toHaveBeenCalledTimes(1);
+    expect(moveDocumentCursor).toHaveBeenCalledWith({
+      command: DocumentCursorCommand.JumpToBottom,
+      visibleRowCount: undefined,
+    });
+  });
+
+  it('clears pending g before handling unrelated right container input', () => {
+    const moveDocumentCursor = vi.fn();
+    const instance = render(
+      <InputHarness moveDocumentCursor={moveDocumentCursor} />,
+    );
+
+    instance.stdin.write('g');
+    instance.stdin.write('j');
+    instance.stdin.write('g');
+
+    expect(moveDocumentCursor).toHaveBeenCalledTimes(1);
+    expect(moveDocumentCursor).toHaveBeenCalledWith({
+      command: DocumentCursorCommand.MoveRelative,
+      delta: 1,
       visibleRowCount: undefined,
     });
   });
@@ -118,10 +172,7 @@ function InputHarness({
   readonly cancelQuitConfirmation?: () => void;
   readonly confirmQuitConfirmation?: () => void;
   readonly isQuitConfirmationPending?: boolean;
-  readonly moveDocumentCursor?: (input: {
-    readonly delta: number;
-    readonly visibleRowCount: number | undefined;
-  }) => void;
+  readonly moveDocumentCursor?: (input: MoveDocumentCursorInput) => void;
   readonly requestQuitConfirmation?: () => void;
   readonly startCreateDocument?: () => void;
 }): React.JSX.Element {

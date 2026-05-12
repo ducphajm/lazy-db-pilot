@@ -23,6 +23,7 @@ export type UseAppInputParams = {
   readonly activeBrowserContainer: MongoBrowserContainer;
   readonly browserSidebarItems: readonly MongoBrowserSidebarItem[];
   readonly canMoveDocumentCursor: boolean;
+  readonly cancelCreateCollection: () => void;
   readonly cancelCreateDocument: () => void;
   readonly closeActiveDocumentTab: () => void;
   readonly closeDatabaseFolder: (databaseName: string) => void;
@@ -30,12 +31,14 @@ export type UseAppInputParams = {
   readonly focusLeftSidebar: () => void;
   readonly hasOpenDocumentTabs: boolean;
   readonly isCreateDocumentDraftActive: boolean;
+  readonly isCreateCollectionDraftActive: boolean;
   readonly isQuitConfirmationPending: boolean;
   readonly moveActiveDocumentTab: (
     direction: DocumentTabMoveDirection,
   ) => void;
   readonly moveDocumentCursor: (input: MoveDocumentCursorInput) => void;
   readonly phase: AppPhase;
+  readonly startCreateCollection: (databaseName: string) => void;
   readonly startCreateDocument: () => void;
   readonly selectedSidebarIndex: number;
   readonly selectCollection: (collection: {
@@ -56,6 +59,7 @@ export function useAppInput({
   activeBrowserContainer,
   browserSidebarItems,
   canMoveDocumentCursor,
+  cancelCreateCollection,
   cancelCreateDocument,
   closeActiveDocumentTab,
   closeDatabaseFolder,
@@ -63,10 +67,12 @@ export function useAppInput({
   focusLeftSidebar,
   hasOpenDocumentTabs,
   isCreateDocumentDraftActive,
+  isCreateCollectionDraftActive,
   isQuitConfirmationPending,
   moveActiveDocumentTab,
   moveDocumentCursor,
   phase,
+  startCreateCollection,
   startCreateDocument,
   selectedSidebarIndex,
   selectCollection,
@@ -114,6 +120,14 @@ export function useAppInput({
     if (isCreateDocumentDraftActive) {
       if (key.escape) {
         cancelCreateDocument();
+      }
+
+      return;
+    }
+
+    if (isCreateCollectionDraftActive) {
+      if (key.escape) {
+        cancelCreateCollection();
       }
 
       return;
@@ -263,6 +277,14 @@ export function useAppInput({
         closeDatabaseFolder(focusedSidebarItem.databaseName);
       }
 
+      return;
+    }
+
+    if (
+      input === 'a' &&
+      focusedSidebarItem?.type === MongoBrowserSidebarItemType.Database
+    ) {
+      startCreateCollection(focusedSidebarItem.databaseName);
       return;
     }
 

@@ -22,6 +22,7 @@ import {
   type MongoBrowserSidebarItem,
 } from './mongodbBrowser.js';
 import type {CreateDocumentDraft} from './createDocument.js';
+import type {CreateCollectionDraft} from './createCollection.js';
 
 export type AppViewProps = {
   readonly activeDocumentTab: CollectionDocumentTab | null;
@@ -29,6 +30,7 @@ export type AppViewProps = {
   readonly browserSidebarItems: readonly MongoBrowserSidebarItem[];
   readonly connectionDraft: ConnectionFormDraft;
   readonly connections: readonly DatabaseConnection[];
+  readonly createCollectionDraft: CreateCollectionDraft | null;
   readonly createDocumentDraft: CreateDocumentDraft | null;
   readonly inputError: string | null;
   readonly isQuitConfirmationPending: boolean;
@@ -38,9 +40,12 @@ export type AppViewProps = {
   readonly onDeleteConnectionConfirmation: (action: ConfirmDeleteAction) => void;
   readonly onConfirmQuitConfirmation: () => void;
   readonly onCancelConnectionForm: () => void;
+  readonly onCancelCreateCollection: () => void;
   readonly onCancelCreateDocument: () => void;
   readonly onSubmitConnectionForm: () => void;
+  readonly onSubmitCreateCollection: () => void;
   readonly onSubmitCreateDocument: () => void;
+  readonly onUpdateCreateCollectionName: (text: SetStateAction<string>) => void;
   readonly onUpdateConnectionDraft: (draft: ConnectionFormDraft) => void;
   readonly onUpdateCreateDocumentText: (text: SetStateAction<string>) => void;
   readonly onRecovery: (action: RecoveryAction) => void;
@@ -58,6 +63,7 @@ export function AppView({
   browserSidebarItems,
   connectionDraft,
   connections,
+  createCollectionDraft,
   createDocumentDraft,
   inputError,
   isQuitConfirmationPending,
@@ -67,9 +73,12 @@ export function AppView({
   onDeleteConnectionConfirmation,
   onConfirmQuitConfirmation,
   onCancelConnectionForm,
+  onCancelCreateCollection,
   onCancelCreateDocument,
   onSubmitConnectionForm,
+  onSubmitCreateCollection,
   onSubmitCreateDocument,
+  onUpdateCreateCollectionName,
   onUpdateConnectionDraft,
   onUpdateCreateDocumentText,
   onRecovery,
@@ -215,14 +224,18 @@ export function AppView({
       <MongoBrowserLayout
         activeContainer={activeBrowserContainer}
         activeDocumentTab={activeDocumentTab}
+        createCollectionDraft={createCollectionDraft}
         createDocumentDraft={createDocumentDraft}
         documentTabs={documentTabs}
         operationError={operationError}
         phase={phase}
         selectedSidebarIndex={selectedSidebarIndex}
         sidebarItems={browserSidebarItems}
+        onCancelCreateCollection={onCancelCreateCollection}
         onCancelCreateDocument={onCancelCreateDocument}
+        onSubmitCreateCollection={onSubmitCreateCollection}
         onSubmitCreateDocument={onSubmitCreateDocument}
+        onUpdateCreateCollectionName={onUpdateCreateCollectionName}
         onUpdateCreateDocumentText={onUpdateCreateDocumentText}
       />,
     );

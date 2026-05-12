@@ -2,6 +2,7 @@ import type {DatabaseConnection} from '../connections/types.js';
 import type {SaveConnection} from './defaultOperations.js';
 import type {DeleteConnection} from './useConnectionDeletion.js';
 import type {
+  CreateCollection,
   InsertCollectionDocument,
   LoadCollectionDocuments,
   LoadCollections,
@@ -9,6 +10,7 @@ import type {
 } from '../types.js';
 
 export type AppProps = {
+  readonly createCollection?: CreateCollection;
   readonly deleteConnectionByName?: DeleteConnection;
   readonly insertCollectionDocument?: InsertCollectionDocument;
   readonly loadCollectionDocuments?: LoadCollectionDocuments;

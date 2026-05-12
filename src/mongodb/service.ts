@@ -21,6 +21,7 @@ export type MongoDbLike = {
   admin: () => MongoAdminLike;
   collection: (collectionName: string) => MongoCollectionLike;
   collections: () => Promise<readonly MongoCollectionInfo[]>;
+  createCollection: (collectionName: string) => Promise<unknown>;
 };
 
 export type MongoCollectionDocument = Record<string, unknown>;
@@ -124,6 +125,24 @@ export async function insertMongoCollectionDocument(
     await client.db(databaseName).collection(collectionName).insertOne(document);
   } catch (error: unknown) {
     throw new MongoServiceError(MongoOperation.InsertDocument, error);
+  } finally {
+    await client.close();
+  }
+}
+
+export async function createMongoCollection(
+  url: string,
+  databaseName: string,
+  collectionName: string,
+  createClient: MongoClientFactory = createMongoClient,
+): Promise<void> {
+  const client = createClient(url);
+
+  try {
+    await client.connect();
+    await client.db(databaseName).createCollection(collectionName);
+  } catch (error: unknown) {
+    throw new MongoServiceError(MongoOperation.CreateCollection, error);
   } finally {
     await client.close();
   }

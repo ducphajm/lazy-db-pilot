@@ -2,7 +2,11 @@ import React from 'react';
 import {cleanup, render} from 'ink-testing-library';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {DocumentCursorCommand, type MoveDocumentCursorInput} from './documentTabs.js';
-import {MongoBrowserContainer} from './mongodbBrowser.js';
+import {
+  MongoBrowserContainer,
+  MongoBrowserSidebarItemType,
+  type MongoBrowserSidebarItem,
+} from './mongodbBrowser.js';
 import {AppPhase} from './phases.js';
 import {useAppInput} from './useAppInput.js';
 
@@ -157,40 +161,79 @@ describe('useAppInput', () => {
 
     expect(startCreateDocument).not.toHaveBeenCalled();
   });
+
+  it('starts collection creation with a from a focused database row', () => {
+    const startCreateCollection = vi.fn();
+    const instance = render(
+      <InputHarness
+        activeBrowserContainer={MongoBrowserContainer.LeftSidebar}
+        browserSidebarItems={[databaseSidebarItem('admin')]}
+        startCreateCollection={startCreateCollection}
+      />,
+    );
+
+    instance.stdin.write('a');
+
+    expect(startCreateCollection).toHaveBeenCalledWith('admin');
+  });
+
+  it('ignores collection creation with a from a focused collection row', () => {
+    const startCreateCollection = vi.fn();
+    const instance = render(
+      <InputHarness
+        activeBrowserContainer={MongoBrowserContainer.LeftSidebar}
+        browserSidebarItems={[collectionSidebarItem('admin', 'users')]}
+        startCreateCollection={startCreateCollection}
+      />,
+    );
+
+    instance.stdin.write('a');
+
+    expect(startCreateCollection).not.toHaveBeenCalled();
+  });
 });
 
 function InputHarness({
+  activeBrowserContainer = MongoBrowserContainer.RightData,
+  browserSidebarItems = [],
   cancelQuitConfirmation = () => {},
   confirmQuitConfirmation = () => {},
   hasOpenDocumentTabs = true,
   isQuitConfirmationPending = false,
   moveDocumentCursor = () => {},
   requestQuitConfirmation = () => {},
+  startCreateCollection = () => {},
   startCreateDocument = () => {},
 }: {
+  readonly activeBrowserContainer?: MongoBrowserContainer;
+  readonly browserSidebarItems?: readonly MongoBrowserSidebarItem[];
   readonly hasOpenDocumentTabs?: boolean;
   readonly cancelQuitConfirmation?: () => void;
   readonly confirmQuitConfirmation?: () => void;
   readonly isQuitConfirmationPending?: boolean;
   readonly moveDocumentCursor?: (input: MoveDocumentCursorInput) => void;
   readonly requestQuitConfirmation?: () => void;
+  readonly startCreateCollection?: (databaseName: string) => void;
   readonly startCreateDocument?: () => void;
 }): React.JSX.Element {
   useAppInput({
-    activeBrowserContainer: MongoBrowserContainer.RightData,
-    browserSidebarItems: [],
+    activeBrowserContainer,
+    browserSidebarItems,
     canMoveDocumentCursor: true,
+    cancelCreateCollection: () => {},
     cancelCreateDocument: () => {},
     closeActiveDocumentTab: () => {},
     closeDatabaseFolder: () => {},
     confirmQuitConfirmation,
     focusLeftSidebar: () => {},
     hasOpenDocumentTabs,
+    isCreateCollectionDraftActive: false,
     isCreateDocumentDraftActive: false,
     isQuitConfirmationPending,
     moveActiveDocumentTab: () => {},
     moveDocumentCursor,
     phase: AppPhase.CollectionDataLoaded,
+    startCreateCollection,
     startCreateDocument,
     selectedSidebarIndex: 0,
     selectCollection: () => {},
@@ -203,4 +246,26 @@ function InputHarness({
   });
 
   return <></>;
+}
+
+function databaseSidebarItem(databaseName: string): MongoBrowserSidebarItem {
+  return {
+    databaseName,
+    key: `database:${databaseName}`,
+    label: `[+] ${databaseName}`,
+    type: MongoBrowserSidebarItemType.Database,
+  };
+}
+
+function collectionSidebarItem(
+  databaseName: string,
+  collectionName: string,
+): MongoBrowserSidebarItem {
+  return {
+    collectionName,
+    databaseName,
+    key: `collection:${databaseName}:${collectionName}`,
+    label: `  - ${collectionName}`,
+    type: MongoBrowserSidebarItemType.Collection,
+  };
 }

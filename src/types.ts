@@ -7,6 +7,12 @@ export type LoadCollections = (
   databaseName: string,
 ) => Promise<string[]>;
 
+export type CreateCollection = (
+  url: string,
+  databaseName: string,
+  collectionName: string,
+) => Promise<void>;
+
 export type LoadCollectionDocuments = (
   url: string,
   databaseName: string,

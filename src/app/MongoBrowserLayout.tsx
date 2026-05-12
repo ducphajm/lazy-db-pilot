@@ -1,8 +1,9 @@
-import {Box, Text, useStdout} from 'ink';
+import {Box, Text, useInput, useStdout} from 'ink';
 import {Spinner, StatusMessage} from '@inkjs/ui';
 import {memo} from 'react';
 import type {SetStateAction} from 'react';
 import type {CreateDocumentDraft} from './createDocument.js';
+import type {CreateCollectionDraft} from './createCollection.js';
 import type {CollectionDocumentTab} from './documentTabs.js';
 import {BrowserPane, MemoizedRightBrowserPane} from './DocumentsPane.js';
 import {AppPhase} from './phases.js';
@@ -16,6 +17,7 @@ import {
 export type MongoBrowserLayoutProps = {
   readonly activeContainer: MongoBrowserContainer;
   readonly activeDocumentTab: CollectionDocumentTab | null;
+  readonly createCollectionDraft: CreateCollectionDraft | null;
   readonly createDocumentDraft: CreateDocumentDraft | null;
   readonly documentTabs: readonly CollectionDocumentTab[];
   readonly leftPaneWidth?: number;
@@ -23,14 +25,18 @@ export type MongoBrowserLayoutProps = {
   readonly phase: AppPhase;
   readonly selectedSidebarIndex: number;
   readonly sidebarItems: readonly MongoBrowserSidebarItem[];
+  readonly onCancelCreateCollection: () => void;
   readonly onCancelCreateDocument: () => void;
+  readonly onSubmitCreateCollection: () => void;
   readonly onSubmitCreateDocument: () => void;
+  readonly onUpdateCreateCollectionName: (text: SetStateAction<string>) => void;
   readonly onUpdateCreateDocumentText: (text: SetStateAction<string>) => void;
 };
 
 export function MongoBrowserLayout({
   activeContainer,
   activeDocumentTab,
+  createCollectionDraft,
   createDocumentDraft,
   documentTabs,
   leftPaneWidth = defaultLeftBrowserPaneWidth,
@@ -38,8 +44,11 @@ export function MongoBrowserLayout({
   phase,
   selectedSidebarIndex,
   sidebarItems,
+  onCancelCreateCollection,
   onCancelCreateDocument,
+  onSubmitCreateCollection,
   onSubmitCreateDocument,
+  onUpdateCreateCollectionName,
   onUpdateCreateDocumentText,
 }: MongoBrowserLayoutProps): React.JSX.Element {
   const {stdout} = useStdout();
@@ -55,8 +64,12 @@ export function MongoBrowserLayout({
           paneWidth={leftPaneWidth}
           paneHeight={browserHeight}
           phase={phase}
+          createCollectionDraft={createCollectionDraft}
           selectedSidebarIndex={selectedSidebarIndex}
           sidebarItems={sidebarItems}
+          onCancelCreateCollection={onCancelCreateCollection}
+          onSubmitCreateCollection={onSubmitCreateCollection}
+          onUpdateCreateCollectionName={onUpdateCreateCollectionName}
         />
         <MemoizedRightBrowserPane
           activeContainer={activeContainer}
@@ -84,15 +97,23 @@ function LeftBrowserPane({
   paneWidth,
   paneHeight,
   phase,
+  createCollectionDraft,
   selectedSidebarIndex,
   sidebarItems,
+  onCancelCreateCollection,
+  onSubmitCreateCollection,
+  onUpdateCreateCollectionName,
 }: {
   readonly activeContainer: MongoBrowserContainer;
   readonly paneWidth: number;
   readonly paneHeight: number | undefined;
   readonly phase: AppPhase;
+  readonly createCollectionDraft: CreateCollectionDraft | null;
   readonly selectedSidebarIndex: number;
   readonly sidebarItems: readonly MongoBrowserSidebarItem[];
+  readonly onCancelCreateCollection: () => void;
+  readonly onSubmitCreateCollection: () => void;
+  readonly onUpdateCreateCollectionName: (text: SetStateAction<string>) => void;
 }): React.JSX.Element {
   const itemLabelWidth = getLeftSidebarItemLabelWidth(paneWidth);
   const visibleSidebarRowCount = getVisibleSidebarRowCount(paneHeight, phase);
@@ -134,6 +155,14 @@ function LeftBrowserPane({
         ))}
       </Box>
       <SidebarFeedback phase={phase} />
+      {createCollectionDraft === null ? null : (
+        <CreateCollectionEditor
+          draft={createCollectionDraft}
+          onCancel={onCancelCreateCollection}
+          onSubmit={onSubmitCreateCollection}
+          onUpdateName={onUpdateCreateCollectionName}
+        />
+      )}
     </BrowserPane>
   );
 }
@@ -187,6 +216,54 @@ function SidebarFeedback({
   }
 
   return null;
+}
+
+function CreateCollectionEditor({
+  draft,
+  onCancel,
+  onSubmit,
+  onUpdateName,
+}: {
+  readonly draft: CreateCollectionDraft;
+  readonly onCancel: () => void;
+  readonly onSubmit: () => void;
+  readonly onUpdateName: (text: SetStateAction<string>) => void;
+}): React.JSX.Element {
+  useInput((input, key) => {
+    if (key.escape) {
+      onCancel();
+      return;
+    }
+
+    if (key.return) {
+      onSubmit();
+      return;
+    }
+
+    if (key.backspace || key.delete) {
+      onUpdateName(name => name.slice(0, -1));
+      return;
+    }
+
+    if (!key.ctrl && !key.meta && input.length > 0) {
+      onUpdateName(name => `${name}${input}`);
+    }
+  });
+
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text color="cyan">New collection: {draft.databaseName}</Text>
+      {draft.error === null ? null : (
+        <StatusMessage variant="error">{draft.error}</StatusMessage>
+      )}
+      {draft.isSubmitting ? (
+        <Spinner label="Creating collection" />
+      ) : (
+        <Text>{`> ${draft.name}`}</Text>
+      )}
+      <Text dimColor>Enter submits, Escape cancels.</Text>
+    </Box>
+  );
 }
 
 export function getBrowserContentHeight(

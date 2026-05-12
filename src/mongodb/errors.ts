@@ -14,6 +14,7 @@ export class MongoValidationError extends Error {
 }
 
 export enum MongoOperation {
+  CreateCollection = 'create-collection',
   InsertDocument = 'insert-document',
   LoadCollectionDocuments = 'load-collection-documents',
   ListCollections = 'list-collections',
@@ -34,6 +35,8 @@ export class MongoServiceError extends Error {
 
 export function getMongoServiceMessage(operation: MongoOperation): string {
   switch (operation) {
+    case MongoOperation.CreateCollection:
+      return 'Unable to create collection in the selected database.';
     case MongoOperation.InsertDocument:
       return 'Unable to insert document into the selected collection.';
     case MongoOperation.LoadCollectionDocuments:

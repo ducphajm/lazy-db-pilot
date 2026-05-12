@@ -7,7 +7,6 @@ import {
   type DatabaseConnection,
 } from './connections/types.js';
 import {validateConnection} from './connections/validation.js';
-import {MongoOperation} from './mongodb/errors.js';
 import type {AppProps} from './app/AppProps.js';
 import {AppView} from './app/AppView.js';
 import {
@@ -15,6 +14,7 @@ import {
   type ConnectionFormDraft,
 } from './app/ConnectionForm.js';
 import {
+  defaultCreateCollection,
   defaultDeleteConnection,
   defaultInsertCollectionDocument,
   defaultLoadCollectionDocuments,
@@ -23,7 +23,7 @@ import {
   defaultSaveConnection,
 } from './app/defaultOperations.js';
 import {CollectionDocumentTabStatus} from './app/documentTabs.js';
-import {getConnectionErrorMessage, getDisplayError} from './app/errors.js';
+import {getConnectionErrorMessage} from './app/errors.js';
 import {
   clampSidebarIndex,
   getMongoBrowserSidebarItems,
@@ -33,10 +33,13 @@ import {AppPhase} from './app/phases.js';
 import {RecoveryAction} from './app/ui.js';
 import {useAppInput} from './app/useAppInput.js';
 import {useConnectionDeletion} from './app/useConnectionDeletion.js';
+import {useCreateCollectionDraft} from './app/useCreateCollectionDraft.js';
 import {useCreateDocumentDraft} from './app/useCreateDocumentDraft.js';
 import {useDocumentTabs} from './app/useDocumentTabs.js';
+import {useMongoBrowserLoading} from './app/useMongoBrowserLoading.js';
 
 export function App({
+  createCollection = defaultCreateCollection,
   insertCollectionDocument = defaultInsertCollectionDocument,
   loadCollectionDocuments = defaultLoadCollectionDocuments,
   loadCollections = defaultLoadCollections,
@@ -254,6 +257,33 @@ export function App({
     setOperationError(null);
     setActiveBrowserContainer(MongoBrowserContainer.LeftSidebar);
   }, []);
+  const reloadDatabaseCollections = useCallback((databaseName: string) => {
+    setSelectedDatabase(databaseName);
+    setCollectionsByDatabaseName(previousCollections => {
+      const nextCollections = new Map(previousCollections);
+      nextCollections.delete(databaseName);
+      return nextCollections;
+    });
+    setExpandedDatabaseNames(previousDatabaseNames => {
+      const nextDatabaseNames = new Set(previousDatabaseNames);
+      nextDatabaseNames.add(databaseName);
+      return nextDatabaseNames;
+    });
+    setActiveBrowserContainer(MongoBrowserContainer.LeftSidebar);
+    setOperationError(null);
+    setPhase(AppPhase.LoadingCollections);
+  }, []);
+  const {
+    createCollectionDraft,
+    cancelCreateCollection,
+    startCreateCollection,
+    submitCreateCollection,
+    updateCreateCollectionName,
+  } = useCreateCollectionDraft({
+    createCollection,
+    onCreated: reloadDatabaseCollections,
+    selectedConnection,
+  });
 
   const browserSidebarItems = useMemo(
     () =>
@@ -296,15 +326,18 @@ export function App({
       activeDocumentTab?.status === CollectionDocumentTabStatus.Loaded,
     closeActiveDocumentTab,
     closeDatabaseFolder,
+    cancelCreateCollection,
     cancelCreateDocument,
     confirmQuitConfirmation,
     focusLeftSidebar,
     hasOpenDocumentTabs: documentTabs.length > 0,
     isCreateDocumentDraftActive: createDocumentDraft !== null,
+    isCreateCollectionDraftActive: createCollectionDraft !== null,
     isQuitConfirmationPending,
     moveActiveDocumentTab,
     moveDocumentCursor,
     phase,
+    startCreateCollection,
     startCreateDocument: () => startCreateDocument(activeDocumentTab),
     selectedSidebarIndex,
     selectCollection,
@@ -382,118 +415,50 @@ export function App({
     };
   }, [pendingConnection, phase, saveConnection]);
 
-  useEffect(() => {
-    if (
-      phase !== AppPhase.LoadingDatabases ||
-      selectedConnection?.type !== DatabaseType.MongoDB
-    ) {
-      return;
-    }
+  useMongoBrowserLoading({
+    loadCollections,
+    loadDatabases,
+    phase,
+    selectedConnection,
+    selectedDatabase,
+    setCollectionsByDatabaseName,
+    setDatabases,
+    setExpandedDatabaseNames,
+    setOperationError,
+    setPhase,
+    setSelectedCollection,
+  });
 
-    let isActive = true;
-
-    void loadDatabases(selectedConnection.details.url)
-      .then(nextDatabases => {
-        if (!isActive) {
-          return;
-        }
-
-        setDatabases(nextDatabases);
-        setCollectionsByDatabaseName(new Map());
-        setExpandedDatabaseNames(new Set());
-        setPhase(
-          nextDatabases.length > 0
-            ? AppPhase.DatabasesLoaded
-            : AppPhase.DatabasesEmpty,
-        );
-      })
-      .catch((error: unknown) => {
-        if (!isActive) {
-          return;
-        }
-
-        setOperationError(getDisplayError(error, MongoOperation.ListDatabases));
-        setPhase(AppPhase.DatabaseError);
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [loadDatabases, phase, selectedConnection]);
-
-  useEffect(() => {
-    if (
-      phase !== AppPhase.LoadingCollections ||
-      selectedConnection?.type !== DatabaseType.MongoDB ||
-      selectedDatabase === null
-    ) {
-      return;
-    }
-
-    let isActive = true;
-
-    void loadCollections(selectedConnection.details.url, selectedDatabase)
-      .then(nextCollections => {
-        if (!isActive) {
-          return;
-        }
-
-        setCollectionsByDatabaseName(previousCollections => {
-          const nextCollectionsByDatabaseName = new Map(previousCollections);
-          nextCollectionsByDatabaseName.set(selectedDatabase, nextCollections);
-          return nextCollectionsByDatabaseName;
-        });
-        setSelectedCollection(null);
-        setPhase(
-          nextCollections.length > 0
-            ? AppPhase.CollectionsLoaded
-            : AppPhase.CollectionsEmpty,
-        );
-      })
-      .catch((error: unknown) => {
-        if (!isActive) {
-          return;
-        }
-
-        setOperationError(
-          getDisplayError(error, MongoOperation.ListCollections),
-        );
-        setPhase(AppPhase.CollectionError);
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [loadCollections, phase, selectedConnection, selectedDatabase]);
-
-  return (
-    <AppView
-      activeBrowserContainer={activeBrowserContainer}
-      activeDocumentTab={activeDocumentTab}
-      browserSidebarItems={browserSidebarItems}
-      connectionDraft={draft}
-      connections={connections}
-      createDocumentDraft={createDocumentDraft}
-      documentTabs={documentTabs}
-      inputError={inputError}
-      isQuitConfirmationPending={isQuitConfirmationPending}
-      onCancelConnectionForm={cancelConnectionForm}
-      onCancelQuitConfirmation={cancelQuitConfirmation}
-      onConfirmQuitConfirmation={confirmQuitConfirmation}
-      onCancelCreateDocument={cancelCreateDocument}
-      onCreateConnection={() => resetCreation()}
-      onDeleteConnection={requestConnectionDeletion}
-      onDeleteConnectionConfirmation={handleDeleteConfirmation}
-      onRecovery={handleRecovery}
-      onSelectConnection={selectConnection}
-      onSubmitConnectionForm={submitConnectionForm}
-      onSubmitCreateDocument={submitCreateDocument}
-      onUpdateCreateDocumentText={updateCreateDocumentText}
-      onUpdateConnectionDraft={setDraft}
-      operationError={operationError}
-      phase={phase}
-      selectedConnection={selectedConnection}
-      selectedSidebarIndex={selectedSidebarIndex}
-    />
-  );
+  return <AppView
+    activeBrowserContainer={activeBrowserContainer}
+    activeDocumentTab={activeDocumentTab}
+    browserSidebarItems={browserSidebarItems}
+    connectionDraft={draft}
+    connections={connections}
+    createCollectionDraft={createCollectionDraft}
+    createDocumentDraft={createDocumentDraft}
+    documentTabs={documentTabs}
+    inputError={inputError}
+    isQuitConfirmationPending={isQuitConfirmationPending}
+    onCancelConnectionForm={cancelConnectionForm}
+    onCancelCreateCollection={cancelCreateCollection}
+    onCancelCreateDocument={cancelCreateDocument}
+    onCancelQuitConfirmation={cancelQuitConfirmation}
+    onConfirmQuitConfirmation={confirmQuitConfirmation}
+    onCreateConnection={() => resetCreation()}
+    onDeleteConnection={requestConnectionDeletion}
+    onDeleteConnectionConfirmation={handleDeleteConfirmation}
+    onRecovery={handleRecovery}
+    onSelectConnection={selectConnection}
+    onSubmitConnectionForm={submitConnectionForm}
+    onSubmitCreateCollection={submitCreateCollection}
+    onSubmitCreateDocument={submitCreateDocument}
+    onUpdateCreateCollectionName={updateCreateCollectionName}
+    onUpdateConnectionDraft={setDraft}
+    onUpdateCreateDocumentText={updateCreateDocumentText}
+    operationError={operationError}
+    phase={phase}
+    selectedConnection={selectedConnection}
+    selectedSidebarIndex={selectedSidebarIndex}
+  />;
 }

@@ -25,6 +25,8 @@ export function getDisplayError(
   }
 
   switch (operation) {
+    case MongoOperation.CreateCollection:
+      return 'Unable to create collection in the selected database.';
     case MongoOperation.InsertDocument:
       return 'Unable to insert document into the selected collection.';
     case MongoOperation.LoadCollectionDocuments:

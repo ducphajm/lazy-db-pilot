@@ -236,6 +236,7 @@ describe('MongoDB split browser', () => {
       <MongoBrowserLayout
         activeContainer={MongoBrowserContainer.LeftSidebar}
         activeDocumentTab={null}
+        createCollectionDraft={null}
         createDocumentDraft={null}
         documentTabs={[]}
         leftPaneWidth={64}
@@ -257,8 +258,11 @@ describe('MongoDB split browser', () => {
             type: MongoBrowserSidebarItemType.Collection,
           },
         ]}
+        onCancelCreateCollection={() => {}}
         onCancelCreateDocument={() => {}}
+        onSubmitCreateCollection={() => {}}
         onSubmitCreateDocument={() => {}}
+        onUpdateCreateCollectionName={() => {}}
         onUpdateCreateDocumentText={() => {}}
       />,
     );
@@ -297,6 +301,44 @@ describe('MongoDB split browser', () => {
     expect(getVisibleSidebarRowCount(10, AppPhase.LoadingCollections)).toBe(6);
     expect(getVisibleSidebarRowCount(undefined, AppPhase.CollectionsLoaded))
       .toBeUndefined();
+  });
+
+  it('renders the create collection editor and validation error', async () => {
+    const instance = render(
+      <MongoBrowserLayout
+        activeContainer={MongoBrowserContainer.LeftSidebar}
+        activeDocumentTab={null}
+        createCollectionDraft={{
+          databaseName: 'admin',
+          error: 'Collection name is required.',
+          isSubmitting: false,
+          name: '',
+          url: 'mongodb://example',
+        }}
+        createDocumentDraft={null}
+        documentTabs={[]}
+        operationError={null}
+        phase={AppPhase.DatabasesLoaded}
+        selectedSidebarIndex={0}
+        sidebarItems={[
+          {
+            databaseName: 'admin',
+            key: 'database:admin',
+            label: '[+] admin',
+            type: MongoBrowserSidebarItemType.Database,
+          },
+        ]}
+        onCancelCreateCollection={() => {}}
+        onCancelCreateDocument={() => {}}
+        onSubmitCreateCollection={() => {}}
+        onSubmitCreateDocument={() => {}}
+        onUpdateCreateCollectionName={() => {}}
+        onUpdateCreateDocumentText={() => {}}
+      />,
+    );
+
+    await expectFrame(instance, 'New collection: admin');
+    await expectFrame(instance, 'Collection name is');
   });
 });
 

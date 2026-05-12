@@ -1,12 +1,14 @@
 import {addConnection, deleteConnection} from '../connections/persistence.js';
 import type {ConnectionInput, DatabaseConnection} from '../connections/types.js';
 import {
+  createMongoCollection,
   loadMongoCollectionDocuments,
   insertMongoCollectionDocument,
   listMongoCollections,
   listMongoDatabases,
 } from '../mongodb/service.js';
 import type {
+  CreateCollection,
   InsertCollectionDocument,
   LoadCollectionDocuments,
   LoadCollections,
@@ -23,6 +25,12 @@ export const defaultLoadDatabases: LoadDatabases = url =>
 
 export const defaultLoadCollections: LoadCollections = (url, databaseName) =>
   listMongoCollections(url, databaseName);
+
+export const defaultCreateCollection: CreateCollection = (
+  url,
+  databaseName,
+  collectionName,
+) => createMongoCollection(url, databaseName, collectionName);
 
 export const defaultLoadCollectionDocuments: LoadCollectionDocuments = (
   url,
